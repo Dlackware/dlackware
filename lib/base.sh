@@ -30,7 +30,7 @@ usage() {
 	echo -e "\nDlackware - version $DLACK_VER\n
 Usage:
 	$prog_name build             - Build all packages
-	$prog_name create PACKAGE    - Create new build script
+	$prog_name check-info        - Check for missing and incomplete .info files and fix them
 	$prog_name help              - Show this help message\n"
 
 	if [ -n $1 ]
@@ -101,102 +101,49 @@ build() {
 	rm -f $tmp
 }
 
-## create() name
-##   This will create the build script for the package named 'name' based on a very simple
-##   template.
+## check-info()
+##   Check for missing .info files and create them.
 ##
-create() {
-	local path ans handy_ruler
-	PKGNAM="$1"
+check-info() {
+	local tmp repo pkg path PRGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
-	# List repositories
-	echo "Select the repository:"
-	read_choice ${DLACK_REPOS[@]}
-	path=${DLACK_REPOS[$(($ans-1))]}
+	tmp=$(mktemp)
 
-	# Select subdirectory
-	echo "Subdirectory (leave empty if not needed):"
-	read ans
-	if [ -n "$ans" ]
-	then
-		path=$path/$ans/$PKGNAM
-	else
-		path=$path/$PKGNAM
-	fi
-
-	log "Create path: $path.\n"
-	mkdir -p $path
-
-	# Select the build template
-	echo "Select the build system"
-	for tpl in $DLACK_DATA/templates/*.SlackBuild
+	for repo in "${DLACK_REPOS[@]}"
 	do
-		build_systems[${#build_systems[@]}+1]=$(basename "$tpl");
+
+		# Find all packages with SlackBuild but without an .info file
+		for pkg in $(find $repo -type f -name '*.SlackBuild')
+		do
+			path=$(dirname $pkg)
+			PRGNAM=$(basename $pkg)
+			PRGNAM=${PRGNAM:0:-11}
+			if [ -f "$path/$PRGNAM.info" ]
+			then
+				continue
+			fi
+
+			log "$PRGNAM: .info file is missing"
+			VERSION=$(grep '^VERSION=' $path/$PRGNAM.SlackBuild) # Try to get the version from the build script
+			VERSION=${VERSION:19:-1}
+			read -e -p 'Version: ' -i $VERSION VERSION
+
+			read -p 'Homepage: ' HOMEPAGE
+			read -p 'Download: ' DOWNLOAD
+			download_name=${DOWNLOAD##*/}
+			wget -c -P $tmp $DOWNLOAD
+			MD5SUM=$(md5sum $tmp/$download_name)
+			MD5SUM=${MD5SUM:0:32} # md5sum has 32 characters, the rest is the filename
+
+			log "$path/$PRGNAM.info:"
+			echo "PKGNAM=\"$PRGNAM\"
+VERSION=\"$VERSION\"
+HOMEPAGE=\"$HOMEPAGE\"
+DOWNLOAD=\"$DOWNLOAD\"
+MD5SUM=\"$MD5SUM\"" > $path/$PRGNAM.info
+			cat $path/$PRGNAM.info
+			echo
+			echo
+		done
 	done
-	read_choice ${build_systems[@]}
-
-	log "Copy templates into the destination directory.\n"
-	install -m0755 $DLACK_DATA/templates/${build_systems[$ans]} $path/$PKGNAM.SlackBuild
-	install -m0644 $DLACK_DATA/templates/slack-desc $path/slack-desc
-
-	# slack-desc
-	log "Edit slack-desc.\n"
-	handy_ruler=$(yes " " | head -n ${#PKGNAM} | tr -d '\n')
-	sed -i -e "s/appname/$PKGNAM/g" $path/slack-desc -e "s/       /$handy_ruler/g" $path/slack-desc
-
-	echo -n "Please enter the program version: "
-	read VERSION
-
-	# Copyright, package name and version
-	log "Set build script copyright, name and version.\n"
-	sed -i -e "s/\(P[K|R]GNAM=\)/\1$PKGNAM/" \
-		-e "s/<appname>/$PKGNAM/" \
-		-e "5s/.*/# Copyright $(date +'%Y') $DLACK_USER/" \
-		-e "s/VERSION=\${VERSION:-}/VERSION=\${VERSION:-$VERSION}/" $path/$PKGNAM.SlackBuild
-
-	# Try to guess the url
-	url=$(grep "^wget -c" $path/$PKGNAM.SlackBuild)
-	if [ -n "$url" ]
-	then
-		url=${url:8} # Remove "wget -c " from the url
-		maj_min_ver=$(echo $VERSION | cut -d. -f1,2)
-		url=${url/<maj_min_ver>/$maj_min_ver}
-		echo -en "Is $url\nthe correct download url (leave empty if yes, otherwise enter another url)?\n"
-		read ans
-		if [ -n "$ans" ]
-		then
-			url="$ans"
-		fi
-		log "Set url."
-		sed -i "s|^wget -c .*$|wget -c $url|" $path/$PKGNAM.SlackBuild
-	fi
-
-	# Analize source
-	rm -rf /tmp/dlackware/$PKGNAM
-	mkdir -p /tmp/dlackware/$PKGNAM
-	eval "url=\"$url\"" # Replace variables in the URL
-	wget -c -P /tmp/dlackware/$PKGNAM $url
-	tar -xvf /tmp/dlackware/$PKGNAM/*.tar.?z* -C /tmp/dlackware/$PKGNAM
-
-	log "Search for man pages."
-	if [ "$(find /tmp/dlackware/$PKGNAM -type f -exec grep  '^\.SH NAME$' {} \; | wc -l)" -eq 0 ]
-	then
-		sed -i -e '/# Compress man pages:/,+3d' \
-			-e '\#--mandir=/usr/man \\#d' $path/$PKGNAM.SlackBuild
-	fi
-
-	log "Search for info pages."
-	if [ "$(find /tmp/dlackware/$PKGNAM -type f -name '*.texi' | wc -l)" -eq 0 ]
-	then
-		sed -i "/# Compress info pages and remove the package's dir file/,+3d" $path/$PKGNAM.SlackBuild
-	fi
-
-	log "Search for perl files.\n"
-	if [ "$(find /tmp/dlackware/$PKGNAM -type f -name 'Makefile.PL*' | wc -l)" -eq 0 ]
-	then
-		sed -i "/# Remove 'special' files/,+5d" $path/$PKGNAM.SlackBuild
-	fi
-
-	# Finish
-	log "Please don't forget to add a description in slack-desc."
 }
