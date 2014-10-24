@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Dlackware build system, inpsired by Dropline Build System
+# Copyright 2014 Eugene Wissner, Dachau, Germany
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+DLACK_VER=0.1
+DLACK_BIN=$(dirname `realpath $0`)
+DLACK_LIB=$(dirname $DLACK_BIN)/lib
+DLACK_ETC=$(dirname $DLACK_BIN)/etc
+DLACK_DATA=$(dirname $DLACK_BIN)
+
+# Configuration, include other functions
+set -e
+. $DLACK_LIB/base.sh
+. $DLACK_ETC/dlackware.conf
+
+# Read arguments
+while [ -n "$1" ]
+do
+	case $1 in
+		build|help)
+			cmd=$1
+			shift
+			;;
+		*)
+			echo -e "\n$1: Unknown option."
+			usage 1
+			;;
+	esac
+done
+
+case $cmd in
+	build)
+		build
+		;;
+	help)
+		usage
+		;;
+	*)
+		usage 1
+esac
