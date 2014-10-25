@@ -102,12 +102,13 @@ build() {
 }
 
 ## check-info()
-##   Check for missing .info files and create them.
+##   Check for missing .info files.
+##   Add md5 check sums, replace PRGNAM with PKGNAM.
 ##
 check-info() {
-	local tmp repo pkg path PRGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
+	local tmp repo pkg path PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
-	tmp=$(mktemp)
+	tmp=$(mktemp -d)
 
 	for repo in "${DLACK_REPOS[@]}"
 	do
@@ -116,34 +117,36 @@ check-info() {
 		for pkg in $(find $repo -type f -name '*.SlackBuild')
 		do
 			path=$(dirname $pkg)
-			PRGNAM=$(basename $pkg)
-			PRGNAM=${PRGNAM:0:-11}
-			if [ -f "$path/$PRGNAM.info" ]
+			PKGNAM=$(basename $pkg)
+			PKGNAM=${PKGNAM:0:-11}
+			if [ ! -e "$path/$PKGNAM.info" ]
 			then
-				continue
-			fi
+				log "$PKGNAM: .info file is missing"
+				# Try to get the version from the build script
+				VERSION=$(grep -m 1 '^VERSION=' $path/$PKGNAM.SlackBuild)
+				VERSION=${VERSION:19:-1}
+				read -e -p 'Version: ' -i $VERSION VERSION
 
-			log "$PRGNAM: .info file is missing"
-			VERSION=$(grep '^VERSION=' $path/$PRGNAM.SlackBuild) # Try to get the version from the build script
-			VERSION=${VERSION:19:-1}
-			read -e -p 'Version: ' -i $VERSION VERSION
+				read -p 'Homepage: ' HOMEPAGE
+				read -p 'Download: ' DOWNLOAD
+				download_name=${DOWNLOAD##*/}
+				wget -c -P $tmp $DOWNLOAD
+				MD5SUM=$(md5sum $tmp/$download_name)
+				MD5SUM=${MD5SUM:0:32} # md5sum has 32 characters, the rest is the filename
 
-			read -p 'Homepage: ' HOMEPAGE
-			read -p 'Download: ' DOWNLOAD
-			download_name=${DOWNLOAD##*/}
-			wget -c -P $tmp $DOWNLOAD
-			MD5SUM=$(md5sum $tmp/$download_name)
-			MD5SUM=${MD5SUM:0:32} # md5sum has 32 characters, the rest is the filename
-
-			log "$path/$PRGNAM.info:"
-			echo "PKGNAM=\"$PRGNAM\"
+				log "$path/$PKGNAM.info:"
+				echo "PKGNAM=\"$PKGNAM\"
 VERSION=\"$VERSION\"
 HOMEPAGE=\"$HOMEPAGE\"
 DOWNLOAD=\"$DOWNLOAD\"
-MD5SUM=\"$MD5SUM\"" > $path/$PRGNAM.info
-			cat $path/$PRGNAM.info
-			echo
-			echo
+MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
+				cat $path/$PKGNAM.info
+				echo
+				echo
+			fi
 		done
 	done
+
+	# Remove temporary directory
+	rm -rf $tmp
 }
