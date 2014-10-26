@@ -121,11 +121,21 @@ check-info() {
 			PKGNAM=${PKGNAM:0:-11}
 			if [ ! -e "$path/$PKGNAM.info" ]
 			then
-				log "$PKGNAM: .info file is missing"
+				log "$PKGNAM: .info file is missing (set the version to an empty string to skip the package)"
+
 				# Try to get the version from the build script
-				VERSION=$(grep -m 1 '^VERSION=' $path/$PKGNAM.SlackBuild)
-				VERSION=${VERSION:19:-1}
-				read -e -p 'Version: ' -i $VERSION VERSION
+				VERSION=$(grep -Po -m 1 '(?<=VERSION=\${VERSION:-).*(?=})' $path/$PKGNAM.SlackBuild || true)
+				if [ -n "$VERSION" ]
+				then
+					read -e -p 'Version: ' -i $VERSION VERSION
+				else
+					read -p 'Version: ' VERSION
+				fi
+				if [ -z "$VERSION" ]
+				then
+					echo
+					continue
+				fi
 
 				read -p 'Homepage: ' HOMEPAGE
 				read -p 'Download: ' DOWNLOAD
@@ -141,8 +151,8 @@ HOMEPAGE=\"$HOMEPAGE\"
 DOWNLOAD=\"$DOWNLOAD\"
 MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 				cat $path/$PKGNAM.info
-				echo
-				echo
+
+				echo -e "\n"
 			fi
 		done
 	done
