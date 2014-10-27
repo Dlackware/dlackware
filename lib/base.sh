@@ -106,9 +106,10 @@ build() {
 ##   Add md5 check sums, replace PRGNAM with PKGNAM.
 ##
 check-info() {
-	local tmp repo pkg path PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
+	local file_md5 ans tmp repo pkg path PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
-	tmp=$(mktemp -d)
+	tmp=$(mktemp -d /tmp/dlackware.XXXXXX)
+	log "Temporary directory $tmp is created.\n"
 
 	for repo in "${DLACK_REPOS[@]}"
 	do
@@ -121,7 +122,7 @@ check-info() {
 			PKGNAM=${PKGNAM:0:-11}
 			if [ ! -e "$path/$PKGNAM.info" ]
 			then
-				log "$PKGNAM: .info file is missing (set the version to an empty string to skip the package)"
+				log "$PKGNAM: .info file is missing (set the version to an empty string to skip the package)."
 
 				# Try to get the version from the build script
 				VERSION=$(grep -Po -m 1 '(?<=VERSION=\${VERSION:-).*(?=})' $path/$PKGNAM.SlackBuild || true)
@@ -138,11 +139,30 @@ check-info() {
 				fi
 
 				read -p 'Homepage: ' HOMEPAGE
-				read -p 'Download: ' DOWNLOAD
-				download_name=${DOWNLOAD##*/}
-				wget -c -P $tmp $DOWNLOAD
-				MD5SUM=$(md5sum $tmp/$download_name)
-				MD5SUM=${MD5SUM:0:32} # md5sum has 32 characters, the rest is the filename
+				read -p 'Download: ' ans
+				wget -c -P $tmp $ans
+				unset DOWNLOAD MD5SUM
+				for url in $ans
+				do
+					if [ -z "$DOWNLOAD" ]
+					then
+						DOWNLOAD="$url"
+					else
+						DOWNLOAD="$DOWNLOAD \\
+          $url"
+					fi
+					download_name=${url##*/}
+
+					file_md5=$(md5sum $tmp/$download_name)
+					file_md5=${file_md5:0:32} # md5sum has 32 characters, the rest is the filename
+					if [ -z "$MD5SUM" ]
+					then
+						MD5SUM="$file_md5"
+					else
+						MD5SUM="$MD5SUM \\
+        $file_md5"
+					fi
+				done
 
 				log "$path/$PKGNAM.info:"
 				echo "PKGNAM=\"$PKGNAM\"
