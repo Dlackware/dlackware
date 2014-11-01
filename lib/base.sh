@@ -178,6 +178,15 @@ MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 				cat $path/$PKGNAM.info
 
 				echo -e "\n"
+			else # Some checks on existing .info files
+				# Replace PRGNAM with PKGNAM
+				if grep --quiet "PRGNAM" $path/$PKGNAM.info
+				then
+					sed -i 's/PRGNAM/PKGNAM/' $path/$PKGNAM.info
+					log "$PKGNAM: PRGNAM replaced with PKGNAM"
+					read -p "Press Enter to continue"
+					echo
+				fi
 			fi
 		done
 	done
