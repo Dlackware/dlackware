@@ -106,7 +106,7 @@ build() {
 ##   Add md5 check sums, replace PRGNAM with PKGNAM.
 ##
 check-info() {
-	local file_md5 ans tmp repo pkg path PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
+	local file_md5 ans tmp repo pkg path maj_min PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
 	tmp=$(mktemp -d /tmp/dlackware.XXXXXX)
 	log "Temporary directory $tmp is created.\n"
@@ -139,7 +139,12 @@ check-info() {
 				fi
 
 				read -p 'Homepage: ' HOMEPAGE
-				read -p 'Download: ' ans
+
+				# Use gnome ftp as the default download url
+				maj_min=${VERSION%.*}
+				read -e -p 'Download: ' -i \
+					ftp://ftp.gnome.org/pub/gnome/sources/$PKGNAM/$maj_min/$PKGNAM-$VERSION.tar.xz ans
+
 				wget -c -P $tmp $ans
 				unset DOWNLOAD MD5SUM
 				for url in $ans
