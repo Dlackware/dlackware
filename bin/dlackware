@@ -49,7 +49,7 @@ case $cmd in
 		build
 		;;
 	check-info)
-		check-info
+		check_info
 		;;
 	help)
 		usage

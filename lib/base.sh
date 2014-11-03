@@ -101,12 +101,12 @@ build() {
 	rm -f $tmp
 }
 
-## check-info()
+## check_info()
 ##   Check for missing .info files.
 ##   Add md5 check sums, replace PRGNAM with PKGNAM.
 ##
-check-info() {
-	local file_md5 ans tmp repo pkg path maj_min PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
+check_info() {
+	local ans tmp repo pkg path maj_min PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
 	tmp=$(mktemp -d /tmp/dlackware.XXXXXX)
 	log "Temporary directory $tmp is created.\n"
@@ -145,29 +145,7 @@ check-info() {
 				read -e -p 'Download: ' -i \
 					ftp://ftp.gnome.org/pub/gnome/sources/$PKGNAM/$maj_min/$PKGNAM-$VERSION.tar.xz ans
 
-				wget -c -P $tmp $ans
-				unset DOWNLOAD MD5SUM
-				for url in $ans
-				do
-					if [ -z "$DOWNLOAD" ]
-					then
-						DOWNLOAD="$url"
-					else
-						DOWNLOAD="$DOWNLOAD \\
-          $url"
-					fi
-					download_name=${url##*/}
-
-					file_md5=$(md5sum $tmp/$download_name)
-					file_md5=${file_md5:0:32} # md5sum has 32 characters, the rest is the filename
-					if [ -z "$MD5SUM" ]
-					then
-						MD5SUM="$file_md5"
-					else
-						MD5SUM="$MD5SUM \\
-        $file_md5"
-					fi
-				done
+				chek_info $ans $tmp
 
 				log "$path/$PKGNAM.info:"
 				echo "PKGNAM=\"$PKGNAM\"
@@ -187,6 +165,29 @@ MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 					read -p "Press Enter to continue"
 					echo
 				fi
+
+				unset VERSION HOMEPAGE DOWNLOAD MD5SUM
+				source $path/$PKGNAM.info
+				
+				if [ -z "$HOMEPAGE" ]
+				then
+					log "$PKGNAM: HOMEPAGE isn't set."
+					read -p 'Homepage: ' HOMEPAGE
+					echo
+				fi
+
+				if [ -z "$MD5SUM" ]
+				then
+					log "$PKGNAM: MD5SUM isn't set."
+					check_md5 $DOWNLOAD $tmp
+					echo
+				fi
+
+				echo "PKGNAM=\"$PKGNAM\"
+VERSION=\"$VERSION\"
+HOMEPAGE=\"$HOMEPAGE\"
+DOWNLOAD=\"$DOWNLOAD\"
+MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 			fi
 		done
 	done
