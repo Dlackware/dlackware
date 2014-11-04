@@ -145,7 +145,7 @@ check_info() {
 				read -e -p 'Download: ' -i \
 					ftp://ftp.gnome.org/pub/gnome/sources/$PKGNAM/$maj_min/$PKGNAM-$VERSION.tar.xz ans
 
-				chek_info $ans $tmp
+				check_md5 $ans $tmp
 
 				log "$path/$PKGNAM.info:"
 				echo "PKGNAM=\"$PKGNAM\"
@@ -181,6 +181,10 @@ MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 					log "$PKGNAM: MD5SUM isn't set."
 					check_md5 $DOWNLOAD $tmp
 					echo
+				else
+					# Keep multi-line output
+					DOWNLOAD="$(echo $DOWNLOAD | sed 's/\s/ \\\n          /g')"
+					MD5SUM="$(echo $MD5SUM | sed 's/\s/ \\\n        /g')"
 				fi
 
 				echo "PKGNAM=\"$PKGNAM\"
