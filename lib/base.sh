@@ -43,14 +43,16 @@ Usage:
 ##   Build all.
 ##
 build() {
-	local repo
+	local repo order
 
 	tmp=$(mktemp)
 
-	for repo in "${DLACK_REPOS[@]}"
+	for order in "${DLACK_REPOS[@]}"
 	do
+		repo=$(dirname $order)
+
 		# Remove comments from the compile order and go line for line
-		sed -e 's/\s*#.*//' -e '/^\s*$/d' $repo/compile-order > $tmp
+		sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
 
 		for pkg in $(cat $tmp)
 		do
@@ -106,13 +108,14 @@ build() {
 ##   Add md5 check sums, replace PRGNAM with PKGNAM.
 ##
 check_info() {
-	local ans tmp repo pkg path maj_min PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
+	local ans tmp order repo pkg path maj_min PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
 	tmp=$(mktemp -d /tmp/dlackware.XXXXXX)
 	log "Temporary directory $tmp is created.\n"
 
-	for repo in "${DLACK_REPOS[@]}"
+	for order in "${DLACK_REPOS[@]}"
 	do
+		repo=$(dirname $order)
 
 		# Find all packages with SlackBuild but without an .info file
 		for pkg in $(find $repo -type f -name '*.SlackBuild')

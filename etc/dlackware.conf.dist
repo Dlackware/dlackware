@@ -18,6 +18,5 @@
 #
 
 
-# A list of directories where the build system will search for SlackBuilds
-# and compile-order files.
-DLACK_REPOS=(~root/dlackware-scripts ~root/systemd)
+# A list of compile-order files.
+DLACK_REPOS=(~root/dlackware-scripts/compile-order ~root/systemd/compile-order)
