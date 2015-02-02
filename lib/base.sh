@@ -95,8 +95,13 @@ build() {
 			# Install the package
 			/sbin/upgradepkg --reinstall --install-new \
 				$old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+
+			# Keep MIME database current:
+			/usr/bin/update-mime-database /usr/share/mime 1> /dev/null 2> /dev/null &
+
 			)
 		done
+
 	done
 
 	# Remove temporary file again
