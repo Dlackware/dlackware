@@ -19,4 +19,4 @@
 
 
 # A list of compile-order files.
-DLACK_REPOS=(~root/dlackware-scripts/compile-order ~root/systemd/compile-order)
+DLACK_REPOS=(../dlackware-scripts/systemd/minimal/compile-order ../dlackware-scripts/systemd/rebuilds/compile-order.gnome-deps ../dlackware-scripts/gnome-systemd/compile-order)
