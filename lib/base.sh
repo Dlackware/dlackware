@@ -162,6 +162,9 @@ install() {
                                 *) export ARCH=$( uname -m ) ;;
                         esac
 
+			mkdir -p $OUTPUT
+			wget -O $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz} http://bart.dlackware.com/dlackware64-14.2/pre-alpha/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+
                         # Install the package
                         /sbin/upgradepkg --reinstall --install-new \
                                 $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
