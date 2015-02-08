@@ -33,7 +33,7 @@ set -e
 while [ -n "$1" ]
 do
 	case $1 in
-		build|check-info|help)
+		build|check-info|help|install|download)
 			cmd=$1
 			shift
 			;;
@@ -53,6 +53,11 @@ case $cmd in
 		;;
 	help)
 		usage
+		;;
+	install)
+		install
+		;;
+	download)
 		;;
 	*)
 		usage 1

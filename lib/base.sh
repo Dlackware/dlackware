@@ -32,6 +32,7 @@ Usage:
 	$prog_name build             - Build all packages
 	$prog_name check-info        - Check for missing and incomplete .info files and fix them
 	$prog_name help              - Show this help message\n"
+        $prog_name install           - Install all packages
 
 	if [ -n $1 ]
 	then
@@ -106,6 +107,74 @@ build() {
 
 	# Remove temporary file again
 	rm -f $tmp
+}
+
+## install()
+##   Install all.
+##
+install() {
+        local repo order
+
+        tmp=$(mktemp)
+
+        for order in "${DLACK_REPOS[@]}"
+        do
+                repo=$(dirname $order)
+
+                # Remove comments from the compile order and go line for line
+                sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+
+                for pkg in $(cat $tmp)
+                do
+                        # Unset variables can be set from the previous package
+                        unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
+
+                        # Check if some package should be replaced
+                        if [[ $pkg == *%* ]]
+                        then
+                                old_pkg=$(echo $pkg | cut -d'%' -f1)%
+                                pkg=$(echo $pkg | cut -d'%' -f2)
+                        fi
+
+                        if [ ! -d $repo/$pkg ]
+                        then
+                                die "$pkg wasn't found."
+                        fi
+
+                        (
+                        cd $repo/$pkg
+
+                        # require $PKGNAM
+                        PKGNAM=$(basename $pkg)
+
+                        # Install
+                        # We need some information about the package to be able to install it later
+                        eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
+                        PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
+
+                        case "$( uname -m )" in
+                                i?86) export ARCH=i486 ;;
+                                arm*) export ARCH=arm ;;
+                                *) export ARCH=$( uname -m ) ;;
+                        esac
+
+                        # Install the package
+                        /sbin/upgradepkg --reinstall --install-new \
+                                $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+
+                        # Keep MIME database current:
+                        /usr/bin/update-mime-database /usr/share/mime 1> /dev/null 2> /dev/null &
+
+                        )
+                done
+
+        done
+
+        # Remove temporary file again
+        rm -f $tmp
 }
 
 ## check_info()
@@ -207,3 +276,70 @@ MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 	# Remove temporary directory
 	rm -rf $tmp
 }
+
+## download()
+##   download all sources.
+##
+download() {
+        local repo order
+
+        tmp=$(mktemp)
+
+        for order in "${DLACK_REPOS[@]}"
+        do
+                repo=$(dirname $order)
+
+                # Remove comments from the compile order and go line for line
+                sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+
+                for pkg in $(cat $tmp)
+                do
+                        # Unset variables can be set from the previous package
+                        unset DOWNLOAD VERSION OUTPUT PKGTYPE
+
+                        # Check if some package should be replaced
+                        if [[ $pkg == *%* ]]
+                        then
+                                old_pkg=$(echo $pkg | cut -d'%' -f1)%
+                                pkg=$(echo $pkg | cut -d'%' -f2)
+                        fi
+
+                        if [ ! -d $repo/$pkg ]
+                        then
+                                die "$pkg wasn't found."
+                        fi
+
+                        (
+                        cd $repo/$pkg
+
+                        # require $PKGNAM
+                        PKGNAM=$(basename $pkg)
+
+                        # Install
+                        # We need some information about the package to be able to install it later
+                        eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
+                        eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
+			eval $(grep -m 1 "^DOWNLOAD=" $PKGNAM.info)
+                        PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
+
+
+                        case "$( uname -m )" in
+                                i?86) export ARCH=i486 ;;
+                                arm*) export ARCH=arm ;;
+                                *) export ARCH=$( uname -m ) ;;
+                        esac
+
+                        # download the source packages
+                        wget -c $DOWNLOAD
+
+                        )
+                done
+
+        done
+
+        # Remove temporary file again
+        rm -f $tmp
+}
+
