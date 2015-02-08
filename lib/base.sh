@@ -33,6 +33,7 @@ Usage:
 	$prog_name check-info        - Check for missing and incomplete .info files and fix them
 	$prog_name help              - Show this help message\n"
         $prog_name install           - Install all packages
+	$prog_name download          - Download all sources
 
 	if [ -n $1 ]
 	then

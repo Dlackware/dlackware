@@ -58,6 +58,7 @@ case $cmd in
 		install
 		;;
 	download)
+		download
 		;;
 	*)
 		usage 1
