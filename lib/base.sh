@@ -31,9 +31,9 @@ usage() {
 Usage:
 	$prog_name build             - Build all packages
 	$prog_name check-info        - Check for missing and incomplete .info files and fix them
-	$prog_name help              - Show this help message\n"
         $prog_name install           - Install all packages
 	$prog_name download          - Download all sources
+	$prog_name help              - Show this help message\n"
 
 	if [ -n $1 ]
 	then
@@ -163,7 +163,7 @@ install() {
                         esac
 
 			mkdir -p $OUTPUT
-			wget -O $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz} http://bart.dlackware.com/dlackware64-14.2/pre-alpha/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+			wget -O $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz} http://git.dlackware.com/dlackware64-14.2/pre-alpha/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
 
                         # Install the package
                         /sbin/upgradepkg --reinstall --install-new \
@@ -299,7 +299,7 @@ download() {
                 for pkg in $(cat $tmp)
                 do
                         # Unset variables can be set from the previous package
-                        unset DOWNLOAD VERSION OUTPUT PKGTYPE
+                        unset DOWNLOAD VERSION BUILD TAG OUTPUT PKGTYPE
 
                         # Check if some package should be replaced
                         if [[ $pkg == *%* ]]
