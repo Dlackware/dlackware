@@ -29,156 +29,156 @@ usage() {
 
 	echo -e "\nDlackware - version $DLACK_VER\n
 Usage:
-	$prog_name build             - Build all packages
-	$prog_name check-info        - Check for missing and incomplete .info files and fix them
-        $prog_name install           - Install all packages
-	$prog_name download          - Download all sources
-	$prog_name help              - Show this help message\n"
+    $prog_name build             - Build all packages
+    $prog_name check-info        - Check for missing and incomplete .info files and fix them
+    $prog_name install           - Install all packages
+    $prog_name download          - Download all sources
+    $prog_name help              - Show this help message\n"
 
-	if [ -n $1 ]
-	then
-		exit $1
-	fi
+    if [ -n $1 ]
+    then
+        exit $1
+    fi
 }
 
 ## build()
 ##   Build all.
 ##
 build() {
-	local repo order
+    local repo order
 
-	tmp=$(mktemp)
+    tmp=$(mktemp)
 
-	for order in "${DLACK_REPOS[@]}"
-	do
-		repo=$(dirname $order)
+    for order in "${DLACK_REPOS[@]}"
+    do
+        repo=$(dirname $order)
 
-		# Remove comments from the compile order and go line for line
-		sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+        # Remove comments from the compile order and go line for line
+        sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
 
-		for pkg in $(cat $tmp)
-		do
-			# Unset variables can be set from the previous package
-			unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
+        for pkg in $(cat $tmp)
+        do
+            # Unset variables can be set from the previous package
+            unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
 
-			# Check if some package should be replaced
-			if [[ $pkg == *%* ]]
-			then
-				old_pkg=$(echo $pkg | cut -d'%' -f1)%
-				pkg=$(echo $pkg | cut -d'%' -f2)
-			fi
+            # Check if some package should be replaced
+            if [[ $pkg == *%* ]]
+            then
+                old_pkg=$(echo $pkg | cut -d'%' -f1)%
+                pkg=$(echo $pkg | cut -d'%' -f2)
+            fi
 
-			if [ ! -d $repo/$pkg ]
-			then
-				die "$pkg wasn't found."
-			fi
+            if [ ! -d $repo/$pkg ]
+            then
+                die "$pkg wasn't found."
+            fi
 
-			(
-			cd $repo/$pkg
+            (
+            cd $repo/$pkg
 
-			# Build
-			PKGNAM=$(basename $pkg)
-			sh $PKGNAM.SlackBuild
+            # Build
+            PKGNAM=$(basename $pkg)
+            sh $PKGNAM.SlackBuild
 
-			# Install
-			# We need some information about the package to be able to install it later
-			eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
-			eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
-			eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
-			eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
-			PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
+            # Install
+            # We need some information about the package to be able to install it later
+            eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
+            PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
 
-			case "$( uname -m )" in
-				i?86) export ARCH=i486 ;;
-				arm*) export ARCH=arm ;;
-				*) export ARCH=$( uname -m ) ;;
-			esac
+            case "$( uname -m )" in
+                i?86) export ARCH=i486 ;;
+                arm*) export ARCH=arm ;;
+                *) export ARCH=$( uname -m ) ;;
+            esac
 
-			# Install the package
-			/sbin/upgradepkg --reinstall --install-new \
-				$old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+            # Install the package
+            /sbin/upgradepkg --reinstall --install-new \
+                $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
 
-			# Keep MIME database current:
-			/usr/bin/update-mime-database /usr/share/mime 1> /dev/null 2> /dev/null &
+            # Keep MIME database current:
+            /usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
 
-			)
-		done
+            )
+        done
 
-	done
+    done
 
-	# Remove temporary file again
-	rm -f $tmp
+    # Remove temporary file again
+    rm -f $tmp
 }
 
 ## install()
 ##   Install all.
 ##
 install() {
-        local repo order
+    local repo order
 
-        tmp=$(mktemp)
+    tmp=$(mktemp)
 
-        for order in "${DLACK_REPOS[@]}"
+    for order in "${DLACK_REPOS[@]}"
+    do
+        repo=$(dirname $order)
+
+        # Remove comments from the compile order and go line for line
+        sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+
+        for pkg in $(cat $tmp)
         do
-                repo=$(dirname $order)
+            # Unset variables can be set from the previous package
+            unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
 
-                # Remove comments from the compile order and go line for line
-                sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+            # Check if some package should be replaced
+            if [[ $pkg == *%* ]]
+            then
+                    old_pkg=$(echo $pkg | cut -d'%' -f1)%
+                    pkg=$(echo $pkg | cut -d'%' -f2)
+            fi
 
-                for pkg in $(cat $tmp)
-                do
-                        # Unset variables can be set from the previous package
-                        unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
+            if [ ! -d $repo/$pkg ]
+            then
+                    die "$pkg wasn't found."
+            fi
 
-                        # Check if some package should be replaced
-                        if [[ $pkg == *%* ]]
-                        then
-                                old_pkg=$(echo $pkg | cut -d'%' -f1)%
-                                pkg=$(echo $pkg | cut -d'%' -f2)
-                        fi
+            (
+            cd $repo/$pkg
 
-                        if [ ! -d $repo/$pkg ]
-                        then
-                                die "$pkg wasn't found."
-                        fi
+            # require $PKGNAM
+            PKGNAM=$(basename $pkg)
 
-                        (
-                        cd $repo/$pkg
+            # Install
+            # We need some information about the package to be able to install it later
+            eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
+            eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
+            PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
 
-                        # require $PKGNAM
-                        PKGNAM=$(basename $pkg)
+            case "$( uname -m )" in
+                    i?86) export ARCH=i486 ;;
+                    arm*) export ARCH=arm ;;
+                    *) export ARCH=$( uname -m ) ;;
+            esac
 
-                        # Install
-                        # We need some information about the package to be able to install it later
-                        eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
-                        eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
-                        eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
-                        eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
-                        PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
+            mkdir -p $OUTPUT
+            wget -O $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz} http://git.dlackware.com/dlackware64-14.2/pre-alpha/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
 
-                        case "$( uname -m )" in
-                                i?86) export ARCH=i486 ;;
-                                arm*) export ARCH=arm ;;
-                                *) export ARCH=$( uname -m ) ;;
-                        esac
+            # Install the package
+            /sbin/upgradepkg --reinstall --install-new \
+                    $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
 
-			mkdir -p $OUTPUT
-			wget -O $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz} http://git.dlackware.com/dlackware64-14.2/pre-alpha/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+            # Keep MIME database current:
+            /usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
 
-                        # Install the package
-                        /sbin/upgradepkg --reinstall --install-new \
-                                $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
-
-                        # Keep MIME database current:
-                        /usr/bin/update-mime-database /usr/share/mime 1> /dev/null 2> /dev/null &
-
-                        )
-                done
-
+            )
         done
 
-        # Remove temporary file again
-        rm -f $tmp
+    done
+
+    # Remove temporary file again
+    rm -f $tmp
 }
 
 ## check_info()
