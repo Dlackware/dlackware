@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Dlackware build system, inpsired by Dropline Build System
-# Copyright 2014 Eugene Wissner, Dachau, Germany
+# Copyright 2015 Eugene Wissner, Dachau, Germany
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
