@@ -42,7 +42,8 @@ sed -e 's#^DLACK_BIN=.*#DLACK_BIN=/usr/bin#' \
 	-e 's#^DLACK_ETC=.*#DLACK_ETC=/etc#' \
 	$CWD/bin/dlackware > $PKG/bin/dlackware
 
-install -m 0644 $CWD/lib/* $PKG/libexec/dlackware
+chmod 0755 $PKG/bin/dlackware
+install -m 0755 $CWD/lib/* $PKG/libexec/dlackware
 install -m 0644 $CWD/etc/dlackware.conf.dist $PKG/etc/dlackware.conf.new
 
 mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
