@@ -59,6 +59,9 @@ case $cmd in
 	download-source)
 		download
 		;;
+	git)
+		git
+		;;
 	*)
 		usage 1
 esac

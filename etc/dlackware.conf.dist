@@ -17,9 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DLACK_VERSION=${DLACK_VERSION:-dlack-13.6_14.2}
+DLACK_VERSION=${DLACK_VERSION:-dlack-3.18_14.2}
 
 # A list of compile-order files.
-DLACK_REPOS=(../opt/dlackware-scripts/$DLACK_VERSION/systemd/compile-order)
-#DLACK_REPOS=(../opt/dlackware-scripts/$DLACK_VERSION/rebuilds/compile-order)
-#DLACK_REPOS=(../opt/dlackware-scripts/$DLACK_VERSION/gnome-systemd/compile-order)
+DLACK_REPOS=(/opt/dlackware-scripts/$DLACK_VERSION/systemd/systemd/compile-order)
+#DLACK_REPOS=(/opt/dlackware-scripts/$DLACK_VERSION/systemd/rebuilds/compile-order)
+#DLACK_REPOS=(/opt/dlackware-scripts/$DLACK_VERSION/gnome-systemd/base/compile-order)

@@ -33,6 +33,7 @@ Usage:
     $prog_name check-info        - Check for missing and incomplete .info files and fix them
     $prog_name install           - Install all packages
     $prog_name download          - Download all sources
+    $prog_name git (systemd, gnome-systemd, all) - Download git repository scripts
     $prog_name help              - Show this help message\n"
 
     if [ -n $1 ]
