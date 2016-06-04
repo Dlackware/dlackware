@@ -36,6 +36,12 @@ do
 			cmd=$1
 			shift
 			;;
+		git)
+			cmd=$1
+			shift
+			args=$@
+			shift $#
+			;;
 		*)
 			echo -e "\n$1: Unknown option."
 			usage 1
@@ -60,7 +66,7 @@ case $cmd in
 		download
 		;;
 	git)
-		git
+		git $args
 		;;
 	*)
 		usage 1

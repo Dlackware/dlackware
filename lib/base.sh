@@ -29,12 +29,13 @@ usage() {
 
 	echo -e "\nDlackware - version $DLACK_VER\n
 Usage:
-    $prog_name build             - Build all packages
-    $prog_name check-info        - Check for missing and incomplete .info files and fix them
-    $prog_name install           - Install all packages
-    $prog_name download          - Download all sources
-    $prog_name git (systemd, gnome-systemd, all) - Download git repository scripts
-    $prog_name help              - Show this help message\n"
+    $prog_name build               - Build all packages
+    $prog_name check-info          - Check for missing and incomplete .info files and fix them
+    $prog_name install             - Install all packages
+    $prog_name download            - Download all sources
+    $prog_name git [systemd|gnome] - Clone the Dlackware script repositories.
+                                     If the repository is not specified, clone all.
+    $prog_name help                - Show this help message\n"
 
     if [ -n $1 ]
     then
@@ -346,4 +347,22 @@ download() {
 
     # Remove temporary file again
     rm -f $tmp
+}
+
+## git()
+##   Clone from git.
+##
+git() {
+	# Set default repositories if not specified.
+	if [ -z "$1" ]
+	then
+		repos=(systemd gnome)
+	else
+		repos=$@
+	fi
+
+	for repo in ${repos[@]}
+	do
+		git clone https://github.com/Dlackware/$repo $DLACK_REPOS_ROOT/$repo
+	done
 }
