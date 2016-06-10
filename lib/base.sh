@@ -363,6 +363,6 @@ git() {
 
 	for repo in ${repos[@]}
 	do
-		git clone https://github.com/Dlackware/$repo $DLACK_REPOS_ROOT/$repo
+		$(which git) clone "https://github.com/Dlackware/$repo" "$DLACK_REPOS_ROOT/$repo"
 	done
 }
