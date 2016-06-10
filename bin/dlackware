@@ -18,7 +18,7 @@
 #
 
 
-DLACK_VER=0.2
+DLACK_VER=0.3
 DLACK_BIN=$(dirname `realpath $0`)
 DLACK_LIB=$(dirname $DLACK_BIN)/lib
 DLACK_ETC=$(dirname $DLACK_BIN)/etc
