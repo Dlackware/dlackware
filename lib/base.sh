@@ -76,15 +76,19 @@ build() {
             fi
 
             (
-            cd $repo/$pkg
+			cd $repo/$pkg
 
-            # Build
-            PKGNAM=$(basename $pkg)
-            sh $PKGNAM.SlackBuild
+			# Read .info file
+			source $(basename $pkg).info
+
+			# Download the source packages
+			wget -c $DOWNLOAD
+
+			# Build
+			sh $PKGNAM.SlackBuild
 
             # Install
             # We need some information about the package to be able to install it later
-            eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
             eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
             eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
             eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
@@ -301,7 +305,7 @@ download() {
         for pkg in $(cat $tmp)
         do
             # Unset variables can be set from the previous package
-            unset DOWNLOAD VERSION BUILD TAG OUTPUT PKGTYPE
+            unset PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
 
             # Check if some package should be replaced
             if [[ $pkg == *%* ]]
@@ -316,29 +320,13 @@ download() {
             fi
 
             (
-            cd $repo/$pkg
+			cd $repo/$pkg
 
-            # require $PKGNAM
-            PKGNAM=$(basename $pkg)
+			# Read .info file
+			source $(basename $pkg).info
 
-            # Install
-            # We need some information about the package to be able to install it later
-            eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^DOWNLOAD=" $PKGNAM.info)
-            PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
-
-
-            case "$( uname -m )" in
-                i?86) export ARCH=i486 ;;
-                arm*) export ARCH=arm ;;
-                *) export ARCH=$( uname -m ) ;;
-            esac
-
-            # download the source packages
-            wget -c $DOWNLOAD
+			# Download the source packages
+			wget -c $DOWNLOAD
 
             )
         done
