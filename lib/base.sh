@@ -107,11 +107,11 @@ build() {
             # Delete contens of the default temporary build directory
             rm -rf /tmp/dlackware/package-*
 
-            # Keep MIME database current:
-            /usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
-
             )
         done
+
+		# Keep MIME database current:
+		/usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
 
     done
 
