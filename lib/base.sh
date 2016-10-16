@@ -33,7 +33,7 @@ Usage:
     $prog_name check-info          - Check for missing and incomplete .info files and fix them
     $prog_name install             - Install all packages
     $prog_name download            - Download all sources
-    $prog_name git [systemd|gnome] - Clone the Dlackware script repositories.
+    $prog_name git [repository]    - Clone the Dlackware script repositories.
                                      If the repository is not specified, clone all.
     $prog_name help                - Show this help message\n"
 
@@ -337,14 +337,17 @@ download() {
     rm -f $tmp
 }
 
-## git()
+## git() repository
 ##   Clone from git.
+##
+## Params:
+##  repository Optional The git repository should be cloned.
 ##
 git() {
 	# Set default repositories if not specified.
 	if [ -z "$1" ]
 	then
-		repos=(systemd gnome)
+		repos=(pam systemd gnome)
 	else
 		repos=$@
 	fi
