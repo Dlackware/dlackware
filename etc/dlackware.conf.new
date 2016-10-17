@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Dlackware build system, inpsired by Dropline Build System
-# Copyright 2015-2016 Eugene Wissner, Dachau, Germany
+# Copyright 2015 Eugene Wissner, Dachau, Germany
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,11 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DLACK_VERSION="3.18_14.2"
+DLACK_VERSION="3.22_14.2"
 
 DLACK_REPOS_ROOT="/opt/dlackware-scripts/$DLACK_VERSION"
 
 # A list of compile-order files.
-DLACK_REPOS=($DLACK_REPOS_ROOT/systemd/systemd/compile-order)
-#DLACK_REPOS=($DLACK_REPOS_ROOT/systemd/rebuilds/compile-order)
-#DLACK_REPOS=($DLACK_REPOS_ROOT/gnome/base/compile-order)
+DLACK_REPOS=(pam/compile-order systemd/systemd/compile-order)
+#DLACK_REPOS=(systemd/rebuilds/compile-order gnome/base/compile-order)

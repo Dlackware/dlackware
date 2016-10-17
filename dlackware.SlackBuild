@@ -44,7 +44,7 @@ sed -e 's#^DLACK_BIN=.*#DLACK_BIN=/bin#' \
 
 chmod 0755 $PKG/bin/dlackware
 install -m 0755 $CWD/lib/* $PKG/usr/libexec/dlackware
-install -m 0644 $CWD/etc/dlackware.conf.dist $PKG/etc/dlackware.conf.new
+install -m 0644 $CWD/etc/dlackware.conf.new $PKG/etc/
 
 mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
 cat $CWD/$PRGNAM.SlackBuild > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild

@@ -29,13 +29,13 @@ usage() {
 
 	echo -e "\nDlackware - version $DLACK_VER\n
 Usage:
-    $prog_name build               - Build all packages
-    $prog_name check-info          - Check for missing and incomplete .info files and fix them
-    $prog_name install             - Install all packages
-    $prog_name download            - Download all sources
+    $prog_name build               - Build all packages.
+    $prog_name check-info          - Check for missing and incomplete .info files and fix them.
+    $prog_name install             - Install all packages.
+    $prog_name download-source     - Download all sources.
     $prog_name git [repository]    - Clone the Dlackware script repositories.
                                      If the repository is not specified, clone all.
-    $prog_name help                - Show this help message\n"
+    $prog_name help                - Show this help message.\n"
 
     if [ -n $1 ]
     then
@@ -43,148 +43,99 @@ Usage:
     fi
 }
 
-## build()
+## build() action
 ##   Build all.
 ##
+## Params:
+##   action = "download", "install" or empty for the complete build and installation.
+##
 build() {
-    local repo order
+	local repo order old_pkg
 
-    tmp=$(mktemp)
+	tmp=$(mktemp)
 
-    for order in "${DLACK_REPOS[@]}"
-    do
-        repo=$(dirname $order)
+	for order in "${DLACK_REPOS[@]}"
+	do
+		repo=$(dirname $DLACK_REPOS_ROOT/$order)
 
-        # Remove comments from the compile order and go line for line
-        sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
+		# Remove comments from the compile order and go line for line
+		sed -e 's/\s*#.*//' -e '/^\s*$/d' $DLACK_REPOS_ROOT/$order > $tmp
 
-        for pkg in $(cat $tmp)
-        do
-            # Unset variables can be set from the previous package
-            unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
+		for pkg in $(cat $tmp)
+		do
+			# Unset variables can be set from the previous package
+			unset VERSION PKGNAM HOMEPAGE DOWNLOAD MD5SUM
 
-            # Check if some package should be replaced
-            if [[ $pkg == *%* ]]
-            then
-                old_pkg=$(echo $pkg | cut -d'%' -f1)%
-                pkg=$(echo $pkg | cut -d'%' -f2)
-            fi
+			if [ ! -d $repo/$pkg ]
+			then
+				die "$pkg wasn't found."
+			fi
 
-            if [ ! -d $repo/$pkg ]
-            then
-                die "$pkg wasn't found."
-            fi
-
-            (
+			(
 			cd $repo/$pkg
 
 			# Read .info file
 			source $(basename $pkg).info
 
 			# Download the source packages
-			wget -c $DOWNLOAD
+			if [ "$1" != "install" ]
+			then
+				wget -c $DOWNLOAD
+			fi
+
+			# Break here if we want only to download
+			if [ "$1" = "download" ]
+			then
+				continue
+			fi
+
+			# Unset variables can be set from the previous package
+			unset old_pkg BUILD TAG OUTPUT PKGTYPE
 
 			# Build
-			sh $PKGNAM.SlackBuild
+			if [ -z "$1" ]
+			then
+				sh $PKGNAM.SlackBuild
+			fi
 
-            # Install
-            # We need some information about the package to be able to install it later
-            eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
-            PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
+			# Install
+			# We need some information about the package to be able to install it later
+			eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
+			eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
+			eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
+			PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
 
-            case "$( uname -m )" in
-                i?86) export ARCH=i486 ;;
-                arm*) export ARCH=arm ;;
-                *) export ARCH=$( uname -m ) ;;
-            esac
+			case "$( uname -m )" in
+				i?86) export ARCH=i486 ;;
+				arm*) export ARCH=arm ;;
+				*) export ARCH=$( uname -m ) ;;
+			esac
 
-            # Install the package
-            /sbin/upgradepkg --reinstall --install-new \
-                $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
+			# Check if some package should be replaced
+			if [[ $pkg == *%* ]]
+			then
+				old_pkg=$(echo $pkg | cut -d'%' -f1)%
+				pkg=$(echo $pkg | cut -d'%' -f2)
+			fi
 
-            # Delete contens of the default temporary build directory
-            rm -rf /tmp/dlackware/package-*
+			# Install the package
+			/sbin/upgradepkg --reinstall --install-new \
+				$old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
 
-            )
-        done
+			# Delete contens of the default temporary build directory
+			rm -rf /tmp/dlackware/package-*
+			)
+		done
 
-		# Keep MIME database current:
-		/usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
+		if [ "$1" != "download" ]
+		then
+			# Keep MIME database current:
+			/usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
+		fi
+	done
 
-    done
-
-    # Remove temporary file again
-    rm -f $tmp
-}
-
-## install()
-##   Install all.
-##
-install() {
-    local repo order
-
-    tmp=$(mktemp)
-
-    for order in "${DLACK_REPOS[@]}"
-    do
-        repo=$(dirname $order)
-
-        # Remove comments from the compile order and go line for line
-        sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
-
-        for pkg in $(cat $tmp)
-        do
-            # Unset variables can be set from the previous package
-            unset old_pkg VERSION BUILD TAG OUTPUT PKGTYPE
-
-            # Check if some package should be replaced
-            if [[ $pkg == *%* ]]
-            then
-                    old_pkg=$(echo $pkg | cut -d'%' -f1)%
-                    pkg=$(echo $pkg | cut -d'%' -f2)
-            fi
-
-            if [ ! -d $repo/$pkg ]
-            then
-                    die "$pkg wasn't found."
-            fi
-
-            (
-            cd $repo/$pkg
-
-            # require $PKGNAM
-            PKGNAM=$(basename $pkg)
-
-            # Install
-            # We need some information about the package to be able to install it later
-            eval $(grep -m 1 "^VERSION="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^BUILD="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^TAG="  $PKGNAM.SlackBuild)
-            eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
-            PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
-
-            case "$( uname -m )" in
-                i?86) export ARCH=i486 ;;
-                arm*) export ARCH=arm ;;
-                *) export ARCH=$( uname -m ) ;;
-            esac
-
-            # Install the package
-            /sbin/upgradepkg --reinstall --install-new \
-                    $old_pkg$OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD$TAG.${PKGTYPE:-txz}
-
-            # Keep MIME database current:
-            /usr/bin/update-mime-database /usr/share/mime > /dev/null 2>&1
-
-            )
-        done
-
-    done
-
-    # Remove temporary file again
-    rm -f $tmp
+	# Remove temporary file again
+	rm -f $tmp
 }
 
 ## check_info()
@@ -287,61 +238,11 @@ MD5SUM=\"$MD5SUM\"" > $path/$PKGNAM.info
 	rm -rf $tmp
 }
 
-## download()
-##   download all sources.
-##
-download() {
-    local repo order
-
-    tmp=$(mktemp)
-
-    for order in "${DLACK_REPOS[@]}"
-    do
-        repo=$(dirname $order)
-
-        # Remove comments from the compile order and go line for line
-        sed -e 's/\s*#.*//' -e '/^\s*$/d' $order > $tmp
-
-        for pkg in $(cat $tmp)
-        do
-            # Unset variables can be set from the previous package
-            unset PKGNAM VERSION HOMEPAGE DOWNLOAD MD5SUM
-
-            # Check if some package should be replaced
-            if [[ $pkg == *%* ]]
-            then
-                    old_pkg=$(echo $pkg | cut -d'%' -f1)%
-                    pkg=$(echo $pkg | cut -d'%' -f2)
-            fi
-
-            if [ ! -d $repo/$pkg ]
-            then
-                    die "$pkg wasn't found."
-            fi
-
-            (
-			cd $repo/$pkg
-
-			# Read .info file
-			source $(basename $pkg).info
-
-			# Download the source packages
-			wget -c $DOWNLOAD
-
-            )
-        done
-
-    done
-
-    # Remove temporary file again
-    rm -f $tmp
-}
-
 ## git() repository
 ##   Clone from git.
 ##
 ## Params:
-##  repository Optional The git repository should be cloned.
+##   repository (Optional) = The git repository should be cloned.
 ##
 git() {
 	# Set default repositories if not specified.

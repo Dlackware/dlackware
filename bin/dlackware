@@ -60,10 +60,10 @@ case $cmd in
 		usage
 		;;
 	install)
-		install
+		build install
 		;;
 	download-source)
-		download
+		build download
 		;;
 	git)
 		git $args
