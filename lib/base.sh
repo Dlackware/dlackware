@@ -52,7 +52,7 @@ Usage:
 build() {
 	local repo order old_pkg
 
-	tmp=$(mktemp)
+	tmp=$(mktemp -p /tmp/dlackware)
 
 	for order in "${DLACK_REPOS[@]}"
 	do
@@ -64,7 +64,14 @@ build() {
 		for pkg in $(cat $tmp)
 		do
 			# Unset variables can be set from the previous package
-			unset VERSION PKGNAM HOMEPAGE DOWNLOAD MD5SUM
+			unset old_pkg VERSION PKGNAM HOMEPAGE DOWNLOAD MD5SUM
+
+			# Check if some package should be replaced
+			if [[ $pkg == *%* ]]
+			then
+				old_pkg=$(echo $pkg | cut -d'%' -f1)%
+				pkg=$(echo $pkg | cut -d'%' -f2)
+			fi
 
 			if [ ! -d $repo/$pkg ]
 			then
@@ -90,7 +97,7 @@ build() {
 			fi
 
 			# Unset variables can be set from the previous package
-			unset old_pkg BUILD TAG OUTPUT PKGTYPE
+			unset BUILD TAG OUTPUT PKGTYPE
 
 			# Build
 			if [ -z "$1" ]
@@ -110,13 +117,6 @@ build() {
 				arm*) export ARCH=arm ;;
 				*) export ARCH=$( uname -m ) ;;
 			esac
-
-			# Check if some package should be replaced
-			if [[ $pkg == *%* ]]
-			then
-				old_pkg=$(echo $pkg | cut -d'%' -f1)%
-				pkg=$(echo $pkg | cut -d'%' -f2)
-			fi
 
 			# Install the package
 			/sbin/upgradepkg --reinstall --install-new \

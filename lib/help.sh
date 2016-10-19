@@ -27,7 +27,7 @@ die() {
 	if [ -n "$msg" ]
 	then
 		tput bel # Bell
-		tput setf 4 # Red colour
+		tput setaf 1 # Red colour
 		tput bold
 		echo "$msg"
 		tput sgr0 # Reset
@@ -42,7 +42,7 @@ die() {
 log() {
 	local msg=$*
     
-	tput setf 2 # Green colour
+	tput setaf 2 # Green colour
 	tput bold
 	echo -e "$msg"
 	tput sgr0 # Reset
