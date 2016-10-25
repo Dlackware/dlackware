@@ -52,6 +52,7 @@ Usage:
 build() {
 	local repo order old_pkg
 
+	mkdir -p /tmp/dlackware
 	tmp=$(mktemp -p /tmp/dlackware)
 
 	for order in "${DLACK_REPOS[@]}"
