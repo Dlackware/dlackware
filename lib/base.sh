@@ -86,7 +86,7 @@ build() {
 			source $(basename $pkg).info
 
 			# Download the source packages
-			if [ "$1" != "install" ]
+			if [ "$1" != "install" -a -n "$DOWNLOAD" ]
 			then
 				wget -c $DOWNLOAD
 			fi
@@ -113,11 +113,16 @@ build() {
 			eval $(grep -m 1 "^OUTPUT="  $PKGNAM.SlackBuild)
 			PKGTYPE=$(sed -n 's/PKGTYPE=${PKGTYPE:-\(t[[:alpha:]]z\)}/\1/p' $PKGNAM.SlackBuild)
 
-			case "$( uname -m )" in
-				i?86) export ARCH=i486 ;;
-				arm*) export ARCH=arm ;;
-				*) export ARCH=$( uname -m ) ;;
-			esac
+			if grep -q "^ARCH=noarch$" $PKGNAM.SlackBuild
+			then
+				ARCH=noarch
+			else
+				case "$( uname -m )" in
+					i?86) export ARCH=i486 ;;
+					arm*) export ARCH=arm ;;
+					*) export ARCH=$( uname -m ) ;;
+				esac
+			fi
 
 			# Install the package
 			/sbin/upgradepkg --reinstall --install-new \

@@ -17,10 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DLACK_VERSION="3.22_14.2"
-
-DLACK_REPOS_ROOT="/opt/dlackware-scripts/$DLACK_VERSION"
+DLACK_REPOS_ROOT="/opt/dlackware-scripts/3.22_14.2"
 
 # A list of compile-order files.
 DLACK_REPOS=(pam/compile-order systemd/systemd/compile-order)
-#DLACK_REPOS=(systemd/rebuilds/compile-order gnome/base/compile-order)
+#DLACK_REPOS=(systemd/rebuilds/compile-order base/compile-order)
