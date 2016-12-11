@@ -13,4 +13,4 @@ config() {
 
 config etc/dlackware.conf.new
 
-mkdir -p /opt/dlackware-scripts/dlack-3.18_14.2/{systemd,gnome-systemd}
+mkdir -p /opt/dlackware-scripts/dlack-3.22_14.2/{systemd,gnome-systemd}
