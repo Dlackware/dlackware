@@ -18,8 +18,8 @@
 #
 
 PRGNAM=dlackware
-VERSION=${VERSION:-0.4}
-BUILD=${BUILD:-2}
+VERSION=${VERSION:-0.5}
+BUILD=${BUILD:-1}
 TAG=${TAG:-_dlack}
 
 ARCH=noarch

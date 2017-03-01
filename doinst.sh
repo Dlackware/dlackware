@@ -13,4 +13,4 @@ config() {
 
 config etc/dlackware.conf.new
 
-mkdir -p /opt/dlackware-scripts/3.22_14.2/{pam,systemd,gnome}
+mkdir -p /opt/dlackware-scripts/{pam,systemd,gnome}

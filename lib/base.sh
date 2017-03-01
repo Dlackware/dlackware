@@ -85,8 +85,10 @@ build() {
 			# Read .info file
 			source $(basename $pkg).info
 
-			# Download the source packages
-			if [ "$1" != "install" -a -n "$DOWNLOAD" ]
+			file1=$PKGNAM-$VERSION.tar.?z*
+
+			# Download the source packages if needed and does not exist
+			if [ "$1" != "install" -a -n "$DOWNLOAD" ] && [ ! -f $file1 ]
 			then
 				wget -c $DOWNLOAD
 			fi
@@ -95,6 +97,24 @@ build() {
 			if [ "$1" = "download" ]
 			then
 				continue
+			fi
+
+			# Create md5sum from downloaded file and check it against .info value
+			file2=`md5sum $PKGNAM-$VERSION.tar.?z* | awk '{ print $1 }'`
+			file3=$MD5SUM
+
+			echo "Checking file: $PKGNAM-$VERSION.tar.?z*"
+			echo "Using MD5 file: $PKGNAM-$VERSION.tar.?z*.md5"
+			echo $file1
+			echo $file2
+			echo $file3
+
+			if [ $file2 == $file3 ]
+			then
+				echo "checksums OK"
+			else
+				echo "md5 sums mismatch"
+				exit 1
 			fi
 
 			# Unset variables can be set from the previous package
