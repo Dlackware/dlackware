@@ -108,11 +108,9 @@ build() {
 			file2=`md5sum $file1 | awk '{ print $1 }'` || exit 1
 			file3=`echo $MD5SUM | cut -d ' ' -f1`
 
-			echo "Checking file: $PKGNAM-$VERSION"
-			echo "Using MD5SUM value from info"
 			echo $file1
-			echo $file2
-			echo $file3
+			echo "Checking source   : $file2"
+			echo "Checking info file : $file3"
 
 			if [ "$file2" == "$file3" ]
 			then
