@@ -65,7 +65,7 @@ build() {
 		for pkg in $(cat $tmp)
 		do
 			# Unset variables can be set from the previous package
-			unset old_pkg VERSION PKGNAM HOMEPAGE DOWNLOAD MD5SUM
+			unset old_pkg VERSION PKGNAM HOMEPAGE DOWNLOAD MD5SUM SRCNAM
 
 			# Check if some package should be replaced
 			if [[ $pkg == *%* ]]
@@ -85,8 +85,12 @@ build() {
 			# Read .info file
 			source $(basename $pkg).info
 
-			file1=$PKGNAM-$VERSION.tar.?z*
-			#if [ -f $file1 ]
+			if [ -z $SRCNAM ]
+			then
+				file1=$PKGNAM-$VERSION.tar.?z*
+			else
+				file1=$SRCNAM-$VERSION.tar.?z*
+			fi
 
 			# Download the source packages if needed
 			if [ "$1" != "install" -a -n "$DOWNLOAD" ] && [ ! -f $file1 ]
@@ -101,11 +105,11 @@ build() {
 			fi
 
 			# Create md5sum from downloaded file and check it against .info value
-			file2=`md5sum $PKGNAM-$VERSION.tar.?z* | awk '{ print $1 }'`
+			file2=`md5sum $file1 | awk '{ print $1 }'` || exit 1
 			file3=`echo $MD5SUM | cut -d ' ' -f1`
 
-			echo "Checking file: $PKGNAM-$VERSION.tar.?z*"
-			echo "Using MD5 file: $PKGNAM-$VERSION.tar.?z*.md5"
+			echo "Checking file: $PKGNAM-$VERSION"
+			echo "Using MD5SUM value from info"
 			echo $file1
 			echo $file2
 			echo $file3
