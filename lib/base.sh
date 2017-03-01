@@ -86,8 +86,9 @@ build() {
 			source $(basename $pkg).info
 
 			file1=$PKGNAM-$VERSION.tar.?z*
+			#if [ -f $file1 ]
 
-			# Download the source packages if needed and does not exist
+			# Download the source packages if needed
 			if [ "$1" != "install" -a -n "$DOWNLOAD" ] && [ ! -f $file1 ]
 			then
 				wget -c $DOWNLOAD
@@ -101,7 +102,7 @@ build() {
 
 			# Create md5sum from downloaded file and check it against .info value
 			file2=`md5sum $PKGNAM-$VERSION.tar.?z* | awk '{ print $1 }'`
-			file3=$MD5SUM
+			file3=`echo $MD5SUM | cut -d ' ' -f1`
 
 			echo "Checking file: $PKGNAM-$VERSION.tar.?z*"
 			echo "Using MD5 file: $PKGNAM-$VERSION.tar.?z*.md5"
@@ -109,7 +110,7 @@ build() {
 			echo $file2
 			echo $file3
 
-			if [ $file2 == $file3 ]
+			if [ "$file2" == "$file3" ]
 			then
 				echo "checksums OK"
 			else
