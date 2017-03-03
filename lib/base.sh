@@ -93,9 +93,9 @@ build() {
 			fi
 
 			# Download the source packages if needed
-			if [ "$1" != "install" -a -n "$DOWNLOAD" ] && [ ! -f $file1 ]
+			if [ "$1" != "install" -a -n "$DOWNLOAD" ]
 			then
-				wget -c $DOWNLOAD
+				wget -nc $DOWNLOAD
 			fi
 
 			# Break here if we want only to download
@@ -117,7 +117,8 @@ build() {
 				echo "checksums OK"
 			else
 				echo "md5 sums mismatch"
-				exit 1
+				echo "Updating md5sum string"
+				sed -i "s/${MD5SUM}/${file2}/g" $PKGNAM.info
 			fi
 
 			# Unset variables can be set from the previous package
