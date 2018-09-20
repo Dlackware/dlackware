@@ -1,0 +1,49 @@
+name:                dlackware
+version:             0.1.0.0
+github:              "Dlackware/dlackware"
+license:             GPL-3
+author:              "Eugene Wissner"
+maintainer:          "info@dlackware.com"
+copyright:           "2018 Eugene Wissner"
+
+extra-source-files:
+- README.md
+- COPYING
+
+description: Dlackware Gnome build system and installer
+
+dependencies:
+- base >= 4.7 && < 5
+- bytestring
+- filepath
+- parsec
+- process
+- text
+- HsYAML
+
+library:
+    source-dirs: lib
+
+executables:
+  dlackware:
+    main:                Main.hs
+    source-dirs:         src
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - directory
+    - dlackware
+
+tests:
+  dlackware-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - dlackware
+    - hspec

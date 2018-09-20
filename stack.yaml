@@ -1,0 +1,7 @@
+resolver: lts-12.10
+
+packages:
+- .
+
+extra-deps:
+- HsYAML-0.1.1.2

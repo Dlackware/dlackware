@@ -1,0 +1,4 @@
+reposRoot: /opt/dlackware-scripts/gnome
+repos:
+- pam/compile-order
+- systemd/compile-order

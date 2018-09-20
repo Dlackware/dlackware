@@ -2,3 +2,7 @@
 
 .*.sw[op]
 tags
+
+.stack-work/
+dlackbuild.cabal
+*~
