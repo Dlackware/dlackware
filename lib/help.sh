@@ -47,34 +47,3 @@ log() {
 	echo -e "$msg"
 	tput sgr0 # Reset
 }
-
-## check_md5() download_list tmp
-##   This function downloads files and sets $MD5SuM to their md5 check sums.
-##
-check_md5() {
-	local download_name file_md5
-
-	wget -c -P $2 $1
-	unset DOWNLOAD MD5SUM
-	for url in $1
-	do
-		if [ -z "$DOWNLOAD" ]
-		then
-			DOWNLOAD="$url"
-		else
-			DOWNLOAD="$DOWNLOAD \\
-$url"
-		fi
-		download_name=${url##*/}
-
-		file_md5=$(md5sum $tmp/$download_name)
-		file_md5=${file_md5:0:32} # md5sum has 32 characters, the rest is the filename
-		if [ -z "$MD5SUM" ]
-		then
-			MD5SUM="$file_md5"
-		else
-			MD5SUM="$MD5SUM \\
-$file_md5"
-		fi
-	done
-}

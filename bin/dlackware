@@ -32,15 +32,9 @@ set -e
 while [ -n "$1" ]
 do
 	case $1 in
-		build|check-info|help|install|download-source)
+		build|help|install|download-source)
 			cmd=$1
 			shift
-			;;
-		git)
-			cmd=$1
-			shift
-			args=$@
-			shift $#
 			;;
 		*)
 			echo -e "\n$1: Unknown option."
@@ -53,9 +47,6 @@ case $cmd in
 	build)
 		build
 		;;
-	check-info)
-		check_info
-		;;
 	help)
 		usage
 		;;
@@ -64,9 +55,6 @@ case $cmd in
 		;;
 	download-source)
 		build download
-		;;
-	git)
-		git $args
 		;;
 	*)
 		usage 1
