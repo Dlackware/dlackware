@@ -1,6 +1,7 @@
 module ArchSpec (spec) where
 
-import           Arch ( parseArch
+import           Arch ( grepSlackBuild
+                      , parseArch
                       , uname
                       )
 import           Data.Either (isLeft)
@@ -40,3 +41,10 @@ spec = do
             let expected = ["i586", "arm", init $ unameM]
 
             (actual `elem` expected) `shouldBe` True
+
+    describe "grepSlackBuild" $ do
+        it "extracts build number" $ do
+            let actual = grepSlackBuild "BUILD=${BUILD:-1}"
+            let expected = ("1", "")
+
+            actual `shouldBe` expected

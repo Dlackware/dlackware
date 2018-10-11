@@ -1,4 +1,5 @@
 module Arch ( parseArch
+            , grepSlackBuild
             , uname
             ) where
 
@@ -37,19 +38,19 @@ uname = do
     let unameM' = init unameM -- Remove newline
      in return $ fromRight unameM' $ parseArch unameM'
 
-buildNumber :: GenParser Char st Int
+buildNumber :: GenParser Char st String
 buildNumber = do
     _ <- string "BUILD=${BUILD:-"
     n <- many1 digit
     _ <- char '}'
-    return $ read n
+    return n
 
-grepSlackBuild :: String -> (Int, String)
+grepSlackBuild :: String -> (String, String)
 grepSlackBuild slackBuild
-  = foldr f (0, mempty) $ lines slackBuild
+  = foldr f mempty $ lines slackBuild
       where
           f line (build, arch)
               | "BUILD=" `isPrefixOf` line = (parseBuildNumber line, arch)
               | "ARCH=" `isPrefixOf` line = (build, "noarch")
               | otherwise = (build, arch)
-          parseBuildNumber = fromRight 0 . parse buildNumber mempty
+          parseBuildNumber = fromRight mempty . parse buildNumber mempty

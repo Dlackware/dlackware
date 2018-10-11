@@ -1,5 +1,6 @@
 module Main where
 
+import           Arch (grepSlackBuild)
 import           CompileOrder ( Step(..)
                               , parseCompileOrder
                               )
@@ -34,11 +35,11 @@ import System.Process ( CreateProcess(..)
 import Text.ParserCombinators.Parsec (parse)
 
 runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
-runSlackBuild pkg env = do
+runSlackBuild slackBuild env = do
     oldEnv <- getEnvironment
 
     return $ CreateProcess
-        { cmdspec = RawCommand ("." </> (pkg <.> "SlackBuild")) []
+        { cmdspec = RawCommand ("." </> slackBuild) []
         , cwd = Nothing
         , env = Just $ mappend oldEnv env
         , std_in = Inherit
@@ -64,7 +65,7 @@ buildPackage repo (old, pkg) = do
                   Left left -> error $ show left
                   Right right -> right
 
-    let slackBuild = joinPath [repo, pkg, pkg <.> "SlackBuild"]
+    let slackBuild = pkg <.> "SlackBuild"
 
     let (_, version, _, downloads, _) = tuple
 
@@ -73,15 +74,13 @@ buildPackage repo (old, pkg) = do
     oldDirectory <- getCurrentDirectory
     setCurrentDirectory $ repo </> pkg
 
-    buildNumber <- readProcess "sed" ["-nr", "s/^BUILD=\\$\\{BUILD:-(.+)\\}/\\1/p", (pkg <.> "SlackBuild")] ""
-    (_, archNoarch, _) <- readProcessWithExitCode "grep" ["-m", "1", "^ARCH=noarch", (pkg <.> "SlackBuild")] ""
-    let arch = if (length archNoarch) > 1 then (take ((length archNoarch) - 1) archNoarch) else "x86_64"
+    (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
+    let arch = if (length archNoarch) > 1 then archNoarch else "x86_64"
 
     let fullPath = "/var/cache/dlackware/" ++ pkg ++ "-" ++ version ++ "-"
-                ++ arch ++ "-"
-                ++ (take ((length buildNumber) - 1) buildNumber) ++ "_dlack.txz"
+                ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
 
-    (_, _, _, processHandle) <- (runSlackBuild pkg [("VERSION", version)]) >>= createProcess
+    (_, _, _, processHandle) <- (runSlackBuild slackBuild [("VERSION", version)]) >>= createProcess
     _ <- waitForProcess processHandle
 
     setCurrentDirectory oldDirectory
@@ -101,7 +100,7 @@ build :: IO ()
 build = do
     createDirectoryIfMissing False "/tmp/dlackware"
 
-    configContent <- BS.readFile "dlackbuild.yaml"
+    configContent <- BS.readFile "dlackware.yaml"
     let config = fromRight undefined $ parseConfig configContent
     let compileOrders = fmap f (repos config)
             where f x = (T.unpack $ reposRoot config) </> (T.unpack x)
