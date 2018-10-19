@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b0301fc421029753f4982333fefac9cb36bfde4a2bf07b86ee387bee5555f2a5
+-- hash: cc6ccede4b5bf04a5e65531b72df77cf4bd197ae605a1be769020c9ca59c4d67
 
 name:           dlackware
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
       CompileOrder
       Config
       Package
+      Slackware.Command
   other-modules:
       Paths_dlackware
   hs-source-dirs:
@@ -37,7 +38,9 @@ library
       HsYAML
     , base >=4.7 && <5
     , bytestring
+    , directory
     , filepath
+    , optparse-applicative
     , parsec
     , process
     , text
@@ -57,6 +60,7 @@ executable dlackware
     , directory
     , dlackware
     , filepath
+    , optparse-applicative
     , parsec
     , process
     , text
@@ -77,9 +81,11 @@ test-suite dlackware-test
       HsYAML
     , base >=4.7 && <5
     , bytestring
+    , directory
     , dlackware
     , filepath
     , hspec
+    , optparse-applicative
     , parsec
     , process
     , text

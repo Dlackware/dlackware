@@ -20,6 +20,8 @@ dependencies:
 - process
 - text
 - HsYAML
+- optparse-applicative
+- directory
 
 library:
     source-dirs: lib
@@ -33,7 +35,6 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - directory
     - dlackware
 
 tests:
