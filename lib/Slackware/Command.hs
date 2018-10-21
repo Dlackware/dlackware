@@ -138,7 +138,7 @@ doCompileOrder doPackage compileOrder = do
 
 getCompileOrders :: IO [FilePath]
 getCompileOrders = do
-    configContent <- BS.readFile "dlackware.yaml"
+    configContent <- BS.readFile "etc/dlackware.yaml"
     let config = fromRight undefined $ parseConfig configContent
     let f x = (T.unpack $ reposRoot config) </> (T.unpack x)
     return $ fmap f (repos config)

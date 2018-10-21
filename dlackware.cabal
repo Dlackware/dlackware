@@ -2,10 +2,10 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cc6ccede4b5bf04a5e65531b72df77cf4bd197ae605a1be769020c9ca59c4d67
+-- hash: b18e6ef86618a006ae47755e49d0de02dfe3274a89d1ba0e0ab21afa88202820
 
 name:           dlackware
-version:        0.1.0.0
+version:        0.1.0
 description:    Dlackware Gnome build system and installer
 homepage:       https://github.com/Dlackware/dlackware#readme
 bug-reports:    https://github.com/Dlackware/dlackware/issues

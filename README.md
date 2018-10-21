@@ -1,8 +1,4 @@
-# dlackware
-
-builder/installer for Projects using a compile-order
-
-gnome3 + pam + systemd on top of Slackware
+# Dlackware Gnome build system and installer
 
 Hi All,
 
@@ -79,9 +75,14 @@ stack build
 
 It will take some time to download the dependencies on first run.
 
-3. See `dlackware.yaml` in the root directory for configuration options.
+3. Copy `etc/dlackware.yaml.new` to `etc/dlackware.yaml` - here you have some
+configuration options.
 
-4. Run:
+4. Clone Gnome repository with all submodules into
+`/opt/dlackware-scripts/gnome` (the directory can be changed in
+`etc/dlackware.yaml`).
+
+5. Run:
 
 ```shell
 stack exec dlackware -- build
