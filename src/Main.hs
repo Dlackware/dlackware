@@ -7,7 +7,6 @@ import Slackware.Command ( build
 import Options.Applicative ( Parser
                            , ParserInfo
                            , execParser
-                           , idm
                            , subparser
                            , helper
                            , (<**>)

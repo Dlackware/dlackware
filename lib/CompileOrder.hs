@@ -2,7 +2,9 @@ module CompileOrder ( Step(..)
                     , parseCompileOrder
                     ) where
 
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe ( catMaybes
+                  , fromMaybe
+                  )
 import Data.Semigroup (Semigroup(..))
 import Text.ParserCombinators.Parsec ( GenParser
                                      , char

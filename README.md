@@ -1,6 +1,6 @@
 # Dlackware Gnome build system and installer
 
-Hi All,
+[![Build Status](https://semaphoreci.com/api/v1/belka-ew/dlackware/branches/master/badge.svg)](https://semaphoreci.com/belka-ew/dlackware)
 
 Over the past few months we have created and tested gnome3 + pam + systemd on top of Slackware
 The SlackBuilds and order in which to install / build can be located on github.
@@ -10,14 +10,6 @@ There are 3 projects on this page
 - dlackware (build and install)
 - systemd (pam + systemd + rebuilds of stock slackware packages needed for gnome3)
 - gnome-systemd (gnome3 which requires systemd to be installed)
-
-How can you use/build/install these packages ?
-
-you should download all 3 git repos
-the file dlackware/etc/dlackware.conf.dist holds the configuration for the compile-order files.
-
-If you directly want to install and test the desktop, you can issue: "./dlackware install" from the dlackware/bin directory
-You can also build everything from source, in this case you can issue: "./dlackware build" from the dlackware/bin directory
 
 ## New experimental build system
 

@@ -32,8 +32,6 @@ import System.Process ( CreateProcess(..)
                       , createProcess
                       , waitForProcess
                       , callProcess
-                      , readProcess
-                      , readProcessWithExitCode
                       )
 import Text.ParserCombinators.Parsec (parse)
 
