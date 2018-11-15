@@ -3,7 +3,9 @@ module Slackware.Command ( build
                          , install
                          ) where
 
-import           Arch (grepSlackBuild)
+import           Arch ( grepSlackBuild
+                      , uname
+                      )
 import           CompileOrder ( Step(..)
                               , parseCompileOrder
                               )
@@ -30,6 +32,7 @@ import System.Process ( CreateProcess(..)
                       , StdStream(..)
                       , CmdSpec(..)
                       , createProcess
+                      , readProcess
                       , waitForProcess
                       , callProcess
                       )
@@ -75,7 +78,10 @@ buildPackage repo (old, pkg) = do
     callProcess "wget" ("-nc" : downloads)
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
-    let arch = if (length archNoarch) > 1 then archNoarch else "x86_64"
+    unameM <- readProcess "/usr/bin/uname" ["-m"] ""
+    let arch = if (length archNoarch) > 1
+               then archNoarch
+               else uname unameM
 
     let fullPath = "/var/cache/dlackware/" ++ pkg ++ "-" ++ version ++ "-"
                 ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
@@ -103,7 +109,10 @@ installPackage repo (old, pkg) = do
     setCurrentDirectory $ repo </> pkg
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
-    let arch = if (length archNoarch) > 1 then archNoarch else "x86_64"
+    unameM <- readProcess "/usr/bin/uname" ["-m"] ""
+    let arch = if (length archNoarch) > 1
+               then archNoarch
+               else uname unameM
 
     let fullPath = "/var/cache/dlackware/" ++ pkg ++ "-" ++ version ++ "-"
                 ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"

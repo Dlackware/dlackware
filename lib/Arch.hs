@@ -5,7 +5,6 @@ module Arch ( parseArch
 
 import Data.Either (fromRight)
 import Data.List (isPrefixOf)
-import System.Process (readProcess)
 import Text.ParserCombinators.Parsec ( GenParser
                                      , ParseError
                                      , char
@@ -32,11 +31,10 @@ parseArch = parse parser mempty
             eof
             return arch
 
-uname :: IO String
-uname = do
-    unameM <- readProcess "/usr/bin/uname" ["-m"] ""
+uname :: String -> String
+uname unameM = do
     let unameM' = init unameM -- Remove newline
-     in return $ fromRight unameM' $ parseArch unameM'
+     in fromRight unameM' $ parseArch unameM'
 
 buildNumber :: GenParser Char st String
 buildNumber = do

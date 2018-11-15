@@ -5,7 +5,6 @@ import           Arch ( grepSlackBuild
                       , uname
                       )
 import           Data.Either (isLeft)
-import           System.Process (readProcess)
 import           Test.Hspec ( Spec
                             , describe
                             , it
@@ -35,12 +34,10 @@ spec = do
             (isLeft $ parseArch actual) `shouldBe` True
 
     describe "uname" $ do
-        it "returns supported architecture" $ do
-            actual <- uname 
-            unameM <- readProcess "/usr/bin/uname" ["-m"] ""
-            let expected = ["i586", "arm", init $ unameM]
-
-            (actual `elem` expected) `shouldBe` True
+        it "returns uname output if the parser fails" $ do
+            let actual = "x86_64\n"
+            let expected = "x86_64"
+            (uname actual) `shouldBe` expected
 
     describe "grepSlackBuild" $ do
         it "extracts build number" $ do
