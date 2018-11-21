@@ -1,4 +1,6 @@
-module Package (parseInfoFile) where
+module Slackware.Package ( Package(..)
+                         , parseInfoFile
+                         ) where
 
 import Text.ParserCombinators.Parsec ( GenParser
                                      , eof
@@ -10,25 +12,31 @@ import Text.ParserCombinators.Parsec ( GenParser
                                      , noneOf
                                      )
 
+data Package = Package { version :: String
+                       , homepage :: String
+                       , downloads :: [String]
+                       , checksums :: [String]
+                       }
+
 packageName :: GenParser Char st String
 packageName = do
-    string "PKGNAM=\""
+    _ <- string "PKGNAM=\""
     result <- many (noneOf "\"")
-    string "\"\n"
+    _ <- string "\"\n"
     return result
 
 packageVersion :: GenParser Char st String
 packageVersion = do
-    string "VERSION=\""
+    _ <- string "VERSION=\""
     result <- many (noneOf "\"")
-    string "\"\n"
+    _ <- string "\"\n"
     return result
 
 packageHomepage :: GenParser Char st String
 packageHomepage = do
-    string "HOMEPAGE=\""
+    _ <- string "HOMEPAGE=\""
     result <- many (noneOf "\"")
-    string "\"\n"
+    _ <- string "\"\n"
     return result
 
 packageDownload :: GenParser Char st String
@@ -40,9 +48,9 @@ packageDownload = do
 
 packageDownloads :: GenParser Char st [String]
 packageDownloads = do
-    string "DOWNLOAD=\""
+    _ <- string "DOWNLOAD=\""
     result <- many1 packageDownload
-    string "\"\n"
+    _ <- string "\"\n"
     return result
 
 packageChecksum :: GenParser Char st String
@@ -54,17 +62,17 @@ packageChecksum = do
 
 packageChecksums :: GenParser Char st [String]
 packageChecksums = do
-    string "MD5SUM=\""
+    _ <- string "MD5SUM=\""
     result <- many1 packageChecksum
-    string "\"\n"
+    _ <- string "\"\n"
     return result
 
-parseInfoFile :: GenParser Char st (String, String, String, [String], [String])
+parseInfoFile :: GenParser Char st Package
 parseInfoFile = do
-    name <- packageName
-    version <- packageVersion
-    homepage <- packageHomepage
+    _ <- packageName
+    version' <- packageVersion
+    homepage' <- packageHomepage
     download <- packageDownloads
     md5sum <- packageChecksums
     eof
-    return (name, version, homepage, download, md5sum)
+    return $ Package version' homepage' download md5sum

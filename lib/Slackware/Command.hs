@@ -15,7 +15,9 @@ import           Config ( Config(..)
 import           Data.Either (fromRight)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
-import           Package (parseInfoFile)
+import           Slackware.Package ( parseInfoFile
+                                   , Package(..)
+                                   )
 import System.Directory ( createDirectoryIfMissing
                         , withCurrentDirectory
                         , getCurrentDirectory
@@ -39,13 +41,13 @@ import System.Process ( CreateProcess(..)
 import Text.ParserCombinators.Parsec (parse)
 
 runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
-runSlackBuild slackBuild env = do
-    oldEnv <- getEnvironment
+runSlackBuild slackBuild environment = do
+    old <- getEnvironment
 
     return $ CreateProcess
         { cmdspec = RawCommand ("." </> slackBuild) []
         , cwd = Nothing
-        , env = Just $ mappend oldEnv env
+        , env = Just $ mappend old environment
         , std_in = Inherit
         , std_out = Inherit
         , std_err = Inherit
@@ -61,21 +63,20 @@ runSlackBuild slackBuild env = do
         }
 
 buildPackage :: FilePath -> (String, String) -> IO ()
-buildPackage repo (old, pkg) = do
-    let infoFile = joinPath [repo, pkg, pkg <.> "info"]
+buildPackage repo (old, pkgName) = do
+    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
     content <- readFile infoFile
 
-    let tuple = case parse parseInfoFile infoFile content of
+    let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
                   Right right -> right
 
-    let slackBuild = pkg <.> "SlackBuild"
-    let (_, version, _, downloads, _) = tuple
+    let slackBuild = pkgName <.> "SlackBuild"
 
     oldDirectory <- getCurrentDirectory
-    setCurrentDirectory $ repo </> pkg
+    setCurrentDirectory $ repo </> pkgName
 
-    callProcess "wget" ("-nc" : downloads)
+    callProcess "wget" ("-nc" : downloads pkg)
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
     unameM <- readProcess "/usr/bin/uname" ["-m"] ""
@@ -83,10 +84,10 @@ buildPackage repo (old, pkg) = do
                then archNoarch
                else uname unameM
 
-    let fullPath = "/var/cache/dlackware/" ++ pkg ++ "-" ++ version ++ "-"
-                ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
+    let fullPath = "/var/cache/dlackware/" ++ pkgName ++ "-" ++ (version pkg)
+                ++ "-" ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
 
-    (_, _, _, processHandle) <- (runSlackBuild slackBuild [("VERSION", version)]) >>= createProcess
+    (_, _, _, processHandle) <- (runSlackBuild slackBuild [("VERSION", version pkg)]) >>= createProcess
     _ <- waitForProcess processHandle
 
     setCurrentDirectory oldDirectory
@@ -94,19 +95,18 @@ buildPackage repo (old, pkg) = do
     callProcess "/sbin/upgradepkg" ["--reinstall", "--install-new", old ++ fullPath]
 
 installPackage :: FilePath -> (String, String) -> IO ()
-installPackage repo (old, pkg) = do
-    let infoFile = joinPath [repo, pkg, pkg <.> "info"]
+installPackage repo (old, pkgName) = do
+    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
     content <- readFile infoFile
 
-    let tuple = case parse parseInfoFile infoFile content of
+    let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
                   Right right -> right
 
-    let slackBuild = pkg <.> "SlackBuild"
-    let (_, version, _, _, _) = tuple
+    let slackBuild = pkgName <.> "SlackBuild"
 
     oldDirectory <- getCurrentDirectory
-    setCurrentDirectory $ repo </> pkg
+    setCurrentDirectory $ repo </> pkgName
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
     unameM <- readProcess "/usr/bin/uname" ["-m"] ""
@@ -114,25 +114,23 @@ installPackage repo (old, pkg) = do
                then archNoarch
                else uname unameM
 
-    let fullPath = "/var/cache/dlackware/" ++ pkg ++ "-" ++ version ++ "-"
-                ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
+    let fullPath = "/var/cache/dlackware/" ++ pkgName ++ "-" ++ (version pkg)
+                ++ "-" ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
 
     setCurrentDirectory oldDirectory
 
     callProcess "/sbin/upgradepkg" ["--reinstall", "--install-new", old ++ fullPath]
 
 downloadPackageSource :: FilePath -> (String, String) -> IO ()
-downloadPackageSource repo (old, pkg) = do
-    let infoFile = joinPath [repo, pkg, pkg <.> "info"]
+downloadPackageSource repo (old, pkgName) = do
+    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
     content <- readFile infoFile
 
-    let tuple = case parse parseInfoFile infoFile content of
+    let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
                   Right right -> right
 
-    let (_, _, _, downloads, _) = tuple
-
-    withCurrentDirectory (repo </> pkg) (callProcess "wget" ("-nc" : downloads))
+    withCurrentDirectory (repo </> pkgName) (callProcess "wget" ("-nc" : downloads pkg))
 
 doCompileOrder :: (FilePath -> (String, String) -> IO ()) -> String -> IO ()
 doCompileOrder doPackage compileOrder = do
