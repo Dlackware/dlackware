@@ -22,6 +22,11 @@ dependencies:
 - HsYAML
 - optparse-applicative
 - directory
+- conduit
+- conduit-extra
+- req
+- req-conduit
+- data-default-class
 
 library:
     source-dirs: lib

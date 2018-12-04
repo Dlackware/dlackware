@@ -12,14 +12,18 @@ import           CompileOrder ( Step(..)
 import           Config ( Config(..)
                         , parseConfig
                         )
+import           Data.Default.Class (def)
 import           Data.Either (fromRight)
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Maybe (fromJust)
 import qualified Data.Text as T
+import           Network.HTTP.Req (runReq)
 import           Slackware.Package ( parseInfoFile
                                    , Package(..)
                                    )
+import           Slackware.Download (get)
 import System.Directory ( createDirectoryIfMissing
-                        , withCurrentDirectory
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
@@ -76,7 +80,7 @@ buildPackage repo (old, pkgName) = do
     oldDirectory <- getCurrentDirectory
     setCurrentDirectory $ repo </> pkgName
 
-    callProcess "wget" ("-nc" : downloads pkg)
+    mapM_ ((runReq def) . fromJust . get) (C8.pack <$> downloads pkg)
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
     unameM <- readProcess "/usr/bin/uname" ["-m"] ""
@@ -122,7 +126,7 @@ installPackage repo (old, pkgName) = do
     callProcess "/sbin/upgradepkg" ["--reinstall", "--install-new", old ++ fullPath]
 
 downloadPackageSource :: FilePath -> (String, String) -> IO ()
-downloadPackageSource repo (old, pkgName) = do
+downloadPackageSource repo (_, pkgName) = do
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
     content <- readFile infoFile
 
@@ -130,7 +134,9 @@ downloadPackageSource repo (old, pkgName) = do
                   Left left -> error $ show left
                   Right right -> right
 
-    withCurrentDirectory (repo </> pkgName) (callProcess "wget" ("-nc" : downloads pkg))
+    setCurrentDirectory $ repo </> pkgName
+
+    mapM_ ((runReq def) . fromJust . get) (C8.pack <$> downloads pkg)
 
 doCompileOrder :: (FilePath -> (String, String) -> IO ()) -> String -> IO ()
 doCompileOrder doPackage compileOrder = do
@@ -143,7 +149,7 @@ doCompileOrder doPackage compileOrder = do
 
 getCompileOrders :: IO [FilePath]
 getCompileOrders = do
-    configContent <- BS.readFile "etc/dlackware.yaml"
+    configContent <- BSL.readFile "etc/dlackware.yaml"
     let config = fromRight undefined $ parseConfig configContent
     let f x = (T.unpack $ reposRoot config) </> (T.unpack x)
     return $ fmap f (repos config)
