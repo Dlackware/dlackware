@@ -27,6 +27,7 @@ dependencies:
 - req
 - req-conduit
 - data-default-class
+- cryptonite
 
 library:
     source-dirs: lib

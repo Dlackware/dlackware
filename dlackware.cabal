@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c9639b198ad913fe1af3fee1c5412e37ea208c2a516a1e1ee3c5f8cf6c5905df
+-- hash: fe43e65e6018a0910934d34a4467c84a67b61ca3129581f38bdb409cfda4c9bf
 
 name:           dlackware
 version:        1.0.0.0
@@ -41,6 +41,7 @@ library
     , bytestring
     , conduit
     , conduit-extra
+    , cryptonite
     , data-default-class
     , directory
     , filepath
@@ -65,6 +66,7 @@ executable dlackware
     , bytestring
     , conduit
     , conduit-extra
+    , cryptonite
     , data-default-class
     , directory
     , dlackware
@@ -96,6 +98,7 @@ test-suite dlackware-test
     , bytestring
     , conduit
     , conduit-extra
+    , cryptonite
     , data-default-class
     , directory
     , dlackware

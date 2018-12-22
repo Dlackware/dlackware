@@ -12,6 +12,10 @@ import           CompileOrder ( Step(..)
 import           Config ( Config(..)
                         , parseConfig
                         )
+import           Crypto.Hash ( hashlazy
+                             , Digest
+                             , MD5
+                             )
 import           Data.Default.Class (def)
 import           Data.Either (fromRight)
 import qualified Data.ByteString.Char8 as C8
@@ -66,6 +70,9 @@ runSlackBuild slackBuild environment = do
         , use_process_jobs = False
         }
 
+md5sum :: BSL.ByteString -> Digest MD5
+md5sum = hashlazy
+
 buildPackage :: FilePath -> (String, String) -> IO ()
 buildPackage repo (old, pkgName) = do
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
@@ -80,7 +87,14 @@ buildPackage repo (old, pkgName) = do
     oldDirectory <- getCurrentDirectory
     setCurrentDirectory $ repo </> pkgName
 
-    mapM_ ((runReq def) . fromJust . get) (C8.pack <$> downloads pkg)
+    let tarballs = C8.pack <$> (downloads pkg)
+    mapM_ ((runReq def) . fromJust . get) tarballs
+
+    let filenames = (C8.unpack . snd . (C8.breakEnd ('/' ==))) <$> tarballs
+    sums <- mapM (fmap md5sum . BSL.readFile) filenames
+    if (show <$> sums) == (checksums pkg)
+       then return ()
+       else error "Checksum mismatch"
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (readFile slackBuild)
     unameM <- readProcess "/usr/bin/uname" ["-m"] ""
