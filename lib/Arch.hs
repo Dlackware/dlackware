@@ -3,28 +3,33 @@ module Arch ( parseArch
             , uname
             ) where
 
+import Control.Monad.Combinators (some)
 import Data.Either (fromRight)
 import Data.List (isPrefixOf)
-import Text.ParserCombinators.Parsec ( GenParser
-                                     , ParseError
-                                     , char
-                                     , digit
-                                     , string
-                                     , parse
-                                     , many
-                                     , many1
-                                     , anyChar
-                                     , choice
-                                     , eof
-                                     )
+import Data.Void (Void)
+import Text.Megaparsec ( Parsec
+                       , ParseError
+                       , Token
+                       , parse
+                       , many
+                       , choice
+                       , eof
+                       )
+import Text.Megaparsec.Char ( char
+                            , digitChar
+                            , string
+                            , anyChar
+                            )
 
-x86 :: GenParser Char st String
-x86 = char 'i' >> digit >> string "86" >> return "i586"
+type GenParser = Parsec Void String
 
-arm :: GenParser Char st String
+x86 :: GenParser String
+x86 = char 'i' >> digitChar >> string "86" >> return "i586"
+
+arm :: GenParser String
 arm = string "arm" >> many anyChar >> return "arm"
 
-parseArch :: String -> Either ParseError String
+parseArch :: String -> Either (ParseError (Token [Char]) Void) String
 parseArch = parse parser mempty
     where parser = do
             arch <- choice [x86, arm]
@@ -36,10 +41,10 @@ uname unameM = do
     let unameM' = init unameM -- Remove newline
      in fromRight unameM' $ parseArch unameM'
 
-buildNumber :: GenParser Char st String
+buildNumber :: GenParser String
 buildNumber = do
     _ <- string "BUILD=${BUILD:-"
-    n <- many1 digit
+    n <- some digitChar
     _ <- char '}'
     return n
 

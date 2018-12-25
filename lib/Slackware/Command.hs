@@ -46,7 +46,7 @@ import System.Process ( CreateProcess(..)
                       , waitForProcess
                       , callProcess
                       )
-import Text.ParserCombinators.Parsec (parse)
+import Text.Megaparsec (parse)
 
 runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
 runSlackBuild slackBuild environment = do

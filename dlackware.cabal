@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fe43e65e6018a0910934d34a4467c84a67b61ca3129581f38bdb409cfda4c9bf
+-- hash: 174f952c6f62e15441245b08926c61467ad5917f38c468987f29590aa6fffc00
 
 name:           dlackware
 version:        1.0.0.0
@@ -45,8 +45,9 @@ library
     , data-default-class
     , directory
     , filepath
+    , megaparsec
     , optparse-applicative
-    , parsec
+    , parser-combinators
     , process
     , req
     , req-conduit
@@ -71,8 +72,9 @@ executable dlackware
     , directory
     , dlackware
     , filepath
+    , megaparsec
     , optparse-applicative
-    , parsec
+    , parser-combinators
     , process
     , req
     , req-conduit
@@ -104,8 +106,9 @@ test-suite dlackware-test
     , dlackware
     , filepath
     , hspec
+    , megaparsec
     , optparse-applicative
-    , parsec
+    , parser-combinators
     , process
     , req
     , req-conduit

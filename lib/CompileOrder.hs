@@ -2,21 +2,26 @@ module CompileOrder ( Step(..)
                     , parseCompileOrder
                     ) where
 
+import Control.Applicative ((<|>))
+import Control.Monad.Combinators ( many
+                                 , optional
+                                 , some
+                                 )
 import Data.Maybe ( catMaybes
                   , fromMaybe
                   )
 import Data.Semigroup (Semigroup(..))
-import Text.ParserCombinators.Parsec ( GenParser
-                                     , char
-                                     , many
-                                     , many1
-                                     , noneOf
-                                     , parse
-                                     , (<|>)
-                                     , newline
-                                     , optionMaybe
-                                     )
-import Text.Parsec.Error (ParseError)
+import Data.Void (Void)
+import Text.Megaparsec ( Parsec
+                       , ParseError
+                       , parse
+                       )
+import Text.Megaparsec.Char ( noneOf
+                            , char
+                            , newline
+                            )
+
+type GenParser = Parsec Void String
 
 data Step = PackageName (Maybe String) String
 
@@ -35,22 +40,22 @@ instance Show Step where
     show (PackageName Nothing new) = new
     show (PackageName (Just old) new) = old ++ ('%' : new)
 
-package :: GenParser Char st (Maybe Step)
+package :: GenParser (Maybe Step)
 package = do
-    old <- many1 $ noneOf "%\n"
-    new <- optionMaybe $ char '%' *> (many1 $ noneOf "\n")
+    old <- some $ noneOf "%\n"
+    new <- optional $ char '%' *> (some $ noneOf "\n")
     return $ Just $ PackageName ((const old) <$> new) (fromMaybe old new)
 
-emptyLine :: GenParser Char st (Maybe Step)
+emptyLine :: GenParser (Maybe Step)
 emptyLine = newline >> mempty
 
-comment :: GenParser Char st (Maybe Step)
+comment :: GenParser (Maybe Step)
 comment = char '#' *> (many $ noneOf "\n") >> mempty
 
-line :: GenParser Char st (Maybe Step)
+line :: GenParser (Maybe Step)
 line = emptyLine
    <|> comment
    <|> package
 
-parseCompileOrder :: String -> String -> Either ParseError [Step]
+parseCompileOrder :: String -> String -> Either (ParseError Char Void) [Step]
 parseCompileOrder = parse $ catMaybes <$> many line

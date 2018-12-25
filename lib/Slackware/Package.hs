@@ -2,15 +2,20 @@ module Slackware.Package ( Package(..)
                          , parseInfoFile
                          ) where
 
-import Text.ParserCombinators.Parsec ( GenParser
-                                     , eof
-                                     , string
-                                     , many1
-                                     , space
-                                     , skipMany
-                                     , many
-                                     , noneOf
-                                     )
+import Control.Monad.Combinators ( many
+                                 , some
+                                 , skipMany
+                                 )
+import Data.Void (Void)
+import Text.Megaparsec ( Parsec
+                       , eof
+                       )
+import Text.Megaparsec.Char ( noneOf
+                            , space
+                            , string
+                            )
+
+type GenParser = Parsec Void String
 
 data Package = Package { version :: String
                        , homepage :: String
@@ -18,56 +23,56 @@ data Package = Package { version :: String
                        , checksums :: [String]
                        }
 
-packageName :: GenParser Char st String
+packageName :: GenParser String
 packageName = do
     _ <- string "PKGNAM=\""
     result <- many (noneOf "\"")
     _ <- string "\"\n"
     return result
 
-packageVersion :: GenParser Char st String
+packageVersion :: GenParser String
 packageVersion = do
     _ <- string "VERSION=\""
     result <- many (noneOf "\"")
     _ <- string "\"\n"
     return result
 
-packageHomepage :: GenParser Char st String
+packageHomepage :: GenParser String
 packageHomepage = do
     _ <- string "HOMEPAGE=\""
     result <- many (noneOf "\"")
     _ <- string "\"\n"
     return result
 
-packageDownload :: GenParser Char st String
+packageDownload :: GenParser String
 packageDownload = do
-    result <- many1 (noneOf "\\\" \n")
+    result <- some (noneOf "\\\" \n")
     skipMany $ string " \\"
     skipMany space
     return result
 
-packageDownloads :: GenParser Char st [String]
+packageDownloads :: GenParser [String]
 packageDownloads = do
     _ <- string "DOWNLOAD=\""
-    result <- many1 packageDownload
+    result <- some packageDownload
     _ <- string "\"\n"
     return result
 
-packageChecksum :: GenParser Char st String
+packageChecksum :: GenParser String
 packageChecksum = do
-    result <- many1 (noneOf "\\\" \n")
+    result <- some (noneOf "\\\" \n")
     skipMany $ string " \\"
     skipMany space
     return result
 
-packageChecksums :: GenParser Char st [String]
+packageChecksums :: GenParser [String]
 packageChecksums = do
     _ <- string "MD5SUM=\""
-    result <- many1 packageChecksum
+    result <- some packageChecksum
     _ <- string "\"\n"
     return result
 
-parseInfoFile :: GenParser Char st Package
+parseInfoFile :: GenParser Package
 parseInfoFile = do
     _ <- packageName
     version' <- packageVersion
