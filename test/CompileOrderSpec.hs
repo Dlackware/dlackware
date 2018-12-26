@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module CompileOrderSpec (spec) where
 
 import           CompileOrder ( Step(..)

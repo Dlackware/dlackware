@@ -154,12 +154,12 @@ downloadPackageSource repo (_, pkgName) = do
 
 doCompileOrder :: (FilePath -> (String, String) -> IO ()) -> String -> IO ()
 doCompileOrder doPackage compileOrder = do
-    content <- readFile compileOrder
+    content <- C8.readFile compileOrder
 
     mapM_ (doPackage $ takeDirectory compileOrder) (pkgs content)
         where pkgs content = foldr f [] $ fromRight [] $ parseCompileOrder compileOrder content
-              f (PackageName Nothing new) acc = ("", new) : acc
-              f (PackageName (Just old) new) acc = (old ++ "%", new) : acc
+              f (PackageName Nothing new) acc = ("", C8.unpack new) : acc
+              f (PackageName (Just old) new) acc = ((C8.unpack old) ++ "%", C8.unpack new) : acc
 
 getCompileOrders :: IO [FilePath]
 getCompileOrders = do
