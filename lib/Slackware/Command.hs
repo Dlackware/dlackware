@@ -15,6 +15,7 @@ import           Config ( Config(..)
 import           Crypto.Hash ( hashlazy
                              , Digest
                              , MD5
+                             , digestFromByteString
                              )
 import           Data.Default.Class (def)
 import           Data.Either (fromRight)
@@ -76,7 +77,7 @@ md5sum = hashlazy
 buildPackage :: FilePath -> (String, String) -> IO ()
 buildPackage repo (old, pkgName) = do
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- readFile infoFile
+    content <- C8.readFile infoFile
 
     let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
@@ -87,12 +88,12 @@ buildPackage repo (old, pkgName) = do
     oldDirectory <- getCurrentDirectory
     setCurrentDirectory $ repo </> pkgName
 
-    let tarballs = C8.pack <$> (downloads pkg)
+    let tarballs = downloads pkg
     mapM_ ((runReq def) . fromJust . get) tarballs
 
     let filenames = (C8.unpack . snd . (C8.breakEnd ('/' ==))) <$> tarballs
     sums <- mapM (fmap md5sum . BSL.readFile) filenames
-    if (show <$> sums) == (checksums pkg)
+    if ((Just <$> sums) == (digestFromByteString <$> checksums pkg))
        then return ()
        else error "Checksum mismatch"
 
@@ -115,7 +116,7 @@ buildPackage repo (old, pkgName) = do
 installPackage :: FilePath -> (String, String) -> IO ()
 installPackage repo (old, pkgName) = do
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- readFile infoFile
+    content <- C8.readFile infoFile
 
     let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
@@ -142,7 +143,7 @@ installPackage repo (old, pkgName) = do
 downloadPackageSource :: FilePath -> (String, String) -> IO ()
 downloadPackageSource repo (_, pkgName) = do
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- readFile infoFile
+    content <- C8.readFile infoFile
 
     let pkg = case parse parseInfoFile infoFile content of
                   Left left -> error $ show left
@@ -150,7 +151,7 @@ downloadPackageSource repo (_, pkgName) = do
 
     setCurrentDirectory $ repo </> pkgName
 
-    mapM_ ((runReq def) . fromJust . get) (C8.pack <$> downloads pkg)
+    mapM_ ((runReq def) . fromJust . get) (downloads pkg)
 
 doCompileOrder :: (FilePath -> (String, String) -> IO ()) -> String -> IO ()
 doCompileOrder doPackage compileOrder = do

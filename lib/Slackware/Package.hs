@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Slackware.Package ( Package(..)
                          , parseInfoFile
                          ) where
@@ -6,69 +8,63 @@ import Control.Monad.Combinators ( many
                                  , some
                                  , skipMany
                                  )
+import qualified Data.ByteString.Char8 as C8
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
                        , eof
+                       , takeWhile1P
                        )
-import Text.Megaparsec.Char ( noneOf
-                            , space
+import Text.Megaparsec.Byte ( space
                             , string
                             )
 
-type GenParser = Parsec Void String
+type GenParser = Parsec Void C8.ByteString
 
 data Package = Package { version :: String
-                       , homepage :: String
-                       , downloads :: [String]
-                       , checksums :: [String]
+                       , homepage :: C8.ByteString
+                       , downloads :: [C8.ByteString]
+                       , checksums :: [C8.ByteString]
                        }
 
-packageName :: GenParser String
+packageName :: GenParser C8.ByteString
 packageName = do
     _ <- string "PKGNAM=\""
-    result <- many (noneOf "\"")
+    result <- takeWhile1P Nothing (0x22 /=)
     _ <- string "\"\n"
     return result
 
-packageVersion :: GenParser String
+packageVersion :: GenParser C8.ByteString
 packageVersion = do
     _ <- string "VERSION=\""
-    result <- many (noneOf "\"")
+    result <- takeWhile1P Nothing (0x22 /=)
     _ <- string "\"\n"
     return result
 
-packageHomepage :: GenParser String
+packageHomepage :: GenParser C8.ByteString
 packageHomepage = do
     _ <- string "HOMEPAGE=\""
-    result <- many (noneOf "\"")
+    result <- takeWhile1P Nothing (0x22 /=)
     _ <- string "\"\n"
     return result
 
-packageDownload :: GenParser String
+packageDownload :: GenParser C8.ByteString
 packageDownload = do
-    result <- some (noneOf "\\\" \n")
+    result <- takeWhile1P Nothing $ and . ((/=) <$> [0xA, 0x20, 0x22, 0x5C] <*>) . pure
     skipMany $ string " \\"
-    skipMany space
+    space
     return result
 
-packageDownloads :: GenParser [String]
+packageDownloads :: GenParser [C8.ByteString]
 packageDownloads = do
     _ <- string "DOWNLOAD=\""
     result <- some packageDownload
     _ <- string "\"\n"
     return result
 
-packageChecksum :: GenParser String
-packageChecksum = do
-    result <- some (noneOf "\\\" \n")
-    skipMany $ string " \\"
-    skipMany space
-    return result
-
-packageChecksums :: GenParser [String]
+packageChecksums :: GenParser [C8.ByteString]
 packageChecksums = do
     _ <- string "MD5SUM=\""
-    result <- some packageChecksum
+    result <- some packageDownload
     _ <- string "\"\n"
     return result
 
@@ -80,4 +76,4 @@ parseInfoFile = do
     download <- packageDownloads
     md5sum <- packageChecksums
     eof
-    return $ Package version' homepage' download md5sum
+    return $ Package (C8.unpack version') homepage' download md5sum
