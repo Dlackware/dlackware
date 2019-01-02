@@ -17,7 +17,6 @@ dependencies:
 - bytestring
 - filepath
 - process
-- text
 - HsYAML
 - optparse-applicative
 - directory
@@ -29,6 +28,8 @@ dependencies:
 - parser-combinators
 - req
 - req-conduit
+- text
+- transformers
 
 library:
     source-dirs: lib

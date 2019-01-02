@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 174f952c6f62e15441245b08926c61467ad5917f38c468987f29590aa6fffc00
+-- hash: 386cdcd0d2eb912b197e7cac0e9cdaa054edff88c6b75ce9a4bd991ff6704e35
 
 name:           dlackware
 version:        1.0.0.0
@@ -30,6 +30,7 @@ library
       Config
       Slackware.Command
       Slackware.Download
+      Slackware.Exception
       Slackware.Package
   other-modules:
       Paths_dlackware
@@ -52,6 +53,7 @@ library
     , req
     , req-conduit
     , text
+    , transformers
   default-language: Haskell2010
 
 executable dlackware
@@ -79,6 +81,7 @@ executable dlackware
     , req
     , req-conduit
     , text
+    , transformers
   default-language: Haskell2010
 
 test-suite dlackware-test
@@ -113,4 +116,5 @@ test-suite dlackware-test
     , req
     , req-conduit
     , text
+    , transformers
   default-language: Haskell2010
