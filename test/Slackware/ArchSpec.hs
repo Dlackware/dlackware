@@ -1,6 +1,6 @@
-module ArchSpec (spec) where
+module Slackware.ArchSpec (spec) where
 
-import           Arch ( grepSlackBuild
+import Slackware.Arch ( grepSlackBuild
                       , parseArch
                       , uname
                       )

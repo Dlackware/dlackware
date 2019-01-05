@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module CompileOrder ( Step(..)
-                    , parseCompileOrder
-                    ) where
+module Slackware.CompileOrder ( Step(..)
+                              , parseCompileOrder
+                              ) where
 
 import Control.Applicative ((<|>))
 import Control.Monad.Combinators ( many
@@ -15,7 +15,6 @@ import Data.Semigroup (Semigroup(..))
 import Data.Void (Void)
 import Data.Word (Word8)
 import Text.Megaparsec ( Parsec
-                       , ParseError
                        , parse
                        , takeWhile1P
                        )
@@ -23,6 +22,7 @@ import Text.Megaparsec.Byte ( newline
                             , char
                             )
 import Text.Megaparsec.Byte.Lexer (skipLineComment)
+import Text.Megaparsec.Error (ParseErrorBundle)
 
 type GenParser = Parsec Void C8.ByteString
 
@@ -63,5 +63,5 @@ line = emptyLine
    <|> comment
    <|> package
 
-parseCompileOrder :: String -> C8.ByteString -> Either (ParseError Word8 Void) [Step]
+parseCompileOrder :: String -> C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) [Step]
 parseCompileOrder = (parse $ catMaybes <$> many line)

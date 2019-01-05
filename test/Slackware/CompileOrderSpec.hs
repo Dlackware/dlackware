@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module CompileOrderSpec (spec) where
+module Slackware.CompileOrderSpec (spec) where
 
-import           CompileOrder ( Step(..)
+import Slackware.CompileOrder ( Step(..)
                               , parseCompileOrder
                               )
 import           Data.Either (isLeft)

@@ -1,15 +1,15 @@
-module Arch ( parseArch
-            , grepSlackBuild
-            , uname
-            ) where
+module Slackware.Arch ( parseArch
+                      , grepSlackBuild
+                      , uname
+                      ) where
 
 import Control.Monad.Combinators (some)
 import Data.Either (fromRight)
 import Data.List (isPrefixOf)
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
-                       , ParseError
                        , Token
+                       , anySingle
                        , parse
                        , many
                        , choice
@@ -18,8 +18,8 @@ import Text.Megaparsec ( Parsec
 import Text.Megaparsec.Char ( char
                             , digitChar
                             , string
-                            , anyChar
                             )
+import Text.Megaparsec.Error (ParseErrorBundle)
 
 type GenParser = Parsec Void String
 
@@ -27,9 +27,9 @@ x86 :: GenParser String
 x86 = char 'i' >> digitChar >> string "86" >> return "i586"
 
 arm :: GenParser String
-arm = string "arm" >> many anyChar >> return "arm"
+arm = string "arm" >> many anySingle >> return "arm"
 
-parseArch :: String -> Either (ParseError (Token [Char]) Void) String
+parseArch :: String -> Either (ParseErrorBundle String Void) String
 parseArch = parse parser mempty
     where parser = do
             arch <- choice [x86, arm]

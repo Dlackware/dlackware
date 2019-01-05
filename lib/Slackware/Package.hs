@@ -4,18 +4,27 @@ module Slackware.Package ( Package(..)
                          , parseInfoFile
                          ) where
 
-import Control.Monad.Combinators ( many
-                                 , some
+import Control.Monad.Combinators ( some
                                  , skipMany
                                  )
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
+import Data.Maybe (catMaybes)
+import Crypto.Hash ( Digest
+                   , MD5
+                   , digestFromByteString
+                   )
 import Data.Void (Void)
+import Data.Word (Word8)
+import Numeric (readHex)
 import Text.Megaparsec ( Parsec
+                       , count
                        , eof
                        , takeWhile1P
                        )
 import Text.Megaparsec.Byte ( space
                             , string
+                            , hexDigitChar
                             )
 
 type GenParser = Parsec Void C8.ByteString
@@ -23,7 +32,7 @@ type GenParser = Parsec Void C8.ByteString
 data Package = Package { version :: String
                        , homepage :: C8.ByteString
                        , downloads :: [C8.ByteString]
-                       , checksums :: [C8.ByteString]
+                       , checksums :: [Digest MD5]
                        }
 
 packageName :: GenParser C8.ByteString
@@ -61,10 +70,24 @@ packageDownloads = do
     _ <- string "\"\n"
     return result
 
+hexDigit :: GenParser Word8
+hexDigit = do
+    digit1 <- hexDigitChar
+    digit2 <- hexDigitChar
+    return $ fst $ head $ readHex [toChar digit1, toChar digit2]
+        where toChar = toEnum . fromIntegral
+
+packageChecksum :: GenParser B.ByteString
+packageChecksum = do
+    result <- count 16 hexDigit
+    skipMany $ string " \\"
+    space
+    return $ B.pack result
+
 packageChecksums :: GenParser [C8.ByteString]
 packageChecksums = do
     _ <- string "MD5SUM=\""
-    result <- some packageDownload
+    result <- some packageChecksum
     _ <- string "\"\n"
     return result
 
@@ -76,4 +99,6 @@ parseInfoFile = do
     download <- packageDownloads
     md5sum <- packageChecksums
     eof
-    return $ Package (C8.unpack version') homepage' download md5sum
+
+    let md5sums = catMaybes $ digestFromByteString <$> md5sum
+    return $ Package (C8.unpack version') homepage' download md5sums

@@ -3,15 +3,16 @@ module Slackware.Command ( build
                          , install
                          ) where
 
-import           Arch ( grepSlackBuild
+import Slackware.Arch ( grepSlackBuild
                       , uname
                       )
-import           CompileOrder ( Step(..)
+import Slackware.CompileOrder ( Step(..)
                               , parseCompileOrder
                               )
 import           Config ( Config(..)
                         , parseConfig
                         )
+import Control.Monad (foldM)
 import Control.Monad.IO.Class (liftIO)
 import           Control.Exception (try)
 import Control.Monad.Trans.Except ( ExceptT(..)
@@ -19,18 +20,18 @@ import Control.Monad.Trans.Except ( ExceptT(..)
                                   , throwE
                                   , withExceptT
                                   )
-import           Crypto.Hash ( hashlazy
-                             , Digest
+import           Crypto.Hash ( Digest
                              , MD5
+                             , hashlazy
                              )
 import           Data.Default.Class (def)
 import           Data.Either (fromRight)
 import Data.Foldable (foldrM)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Network.HTTP.Req ( HttpException
+                                  , Req
                                   , runReq
                                   )
 import           Slackware.Package ( parseInfoFile
@@ -60,7 +61,7 @@ import System.Process ( CreateProcess(..)
                       )
 import Text.Megaparsec (parse)
 
-type PackageAction = FilePath -> (String, String) -> ExceptT String IO ()
+type PackageAction = Package -> (String, String) -> ExceptT String IO ()
 
 runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
 runSlackBuild slackBuild environment = do
@@ -97,39 +98,12 @@ installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callPr
             ["--reinstall", "--install-new", old ++ fullPath]
 
 buildPackage :: PackageAction
-buildPackage repo (old, pkgName) = do
+buildPackage pkg (old, pkgName) = do
     liftIO $ putStrLn $ "Building package " ++ pkgName
 
-    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- liftIO $ C8.readFile infoFile
-
-    pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ show left
-        Right pkg -> return pkg
+    downloadPackageSource pkg (old, pkgName)
 
     let slackBuild = pkgName <.> "SlackBuild"
-
-    oldDirectory <- liftIO $ getCurrentDirectory
-    liftIO $ setCurrentDirectory $ repo </> pkgName
-
-    let tarballs = downloads pkg
-
-    downloadUrls
-        <- case foldrM (\x -> ((:) <$> x <*>) . pure) [] (get <$> tarballs) of
-            Nothing -> throwE ""
-            Just downloadUrls -> return downloadUrls
-
-    caught <- liftIO ((try (mapM_ (runReq def) downloadUrls)) :: IO (Either HttpException ()))
-    _ <- case caught of
-        Left e -> throwE $ show e
-        Right unit -> return unit
-
-    let filenames = (C8.unpack . snd . (C8.breakEnd ('/' ==))) <$> tarballs
-    sums <- liftIO $ mapM (fmap md5sum . BSL.readFile) filenames
-
-    _ <- if (show <$> sums) /= (C8.unpack <$> checksums pkg)
-        then throwE "Checksum mismatch"
-        else return ()
 
     (buildNumber, archNoarch) <- liftIO $ grepSlackBuild <$> (readFile slackBuild)
     unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
@@ -142,24 +116,13 @@ buildPackage repo (old, pkgName) = do
 
     case code of
         ExitSuccess -> do
-            liftIO $ setCurrentDirectory oldDirectory
             installpkg (old, pkgName) pkg arch buildNumber
 
-        _ -> throwE ""
+        _ -> throwE "Built package installation failed"
 
 installPackage :: PackageAction
-installPackage repo (old, pkgName) = do
-    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- liftIO $ C8.readFile infoFile
-
-    pkg <- case parse parseInfoFile infoFile content of
-                Left left -> throwE $ show left
-                Right pkg -> return pkg
-
+installPackage pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
-
-    oldDirectory <- liftIO getCurrentDirectory
-    liftIO $ setCurrentDirectory $ repo </> pkgName
 
     (buildNumber, archNoarch) <- grepSlackBuild <$> (liftIO $ readFile slackBuild)
     unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
@@ -167,41 +130,71 @@ installPackage repo (old, pkgName) = do
             then archNoarch
             else uname unameM
 
-    liftIO $ setCurrentDirectory oldDirectory
     installpkg (old, pkgName) pkg arch buildNumber
 
 downloadPackageSource :: PackageAction
-downloadPackageSource repo (_, pkgName) = do
-    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
-    content <- liftIO $ C8.readFile infoFile
+downloadPackageSource pkg _ = do
+    liftIO $ putStrLn "Downloading sources"
 
-    pkg <- case parse parseInfoFile infoFile content of
-                Left left -> throwE $ show left
-                Right pkg -> return pkg
+    let tarballs = downloads pkg
 
-    liftIO $ do
-        setCurrentDirectory $ repo </> pkgName
-        mapM_ ((runReq def) . fromJust . get) (downloads pkg)
+    downloadUrls
+        <- case foldrM (\x -> ((:) <$> x <*>) . pure) [] (get <$> tarballs) of
+            Nothing -> throwE "Found unsupported download URL type"
+            Just downloadUrls -> return downloadUrls
+
+    caught <- liftIO $ tryDownload downloadUrls
+    _ <- case caught of
+        Left e -> throwE $ show e
+        Right unit -> return unit
+
+    let filenames = (C8.unpack . snd . (C8.breakEnd ('/' ==))) <$> tarballs
+    sums <- liftIO $ mapM (fmap md5sum . BSL.readFile) filenames
+
+    if sums /= (checksums pkg)
+        then throwE "Checksum mismatch"
+        else return ()
+
+    where tryDownload :: [Req ()] -> IO (Either HttpException ())
+          tryDownload downloadUrls = try $ mapM_ (runReq def) downloadUrls
 
 doCompileOrder :: PackageAction -> String -> IO ()
-doCompileOrder doPackage compileOrder = do
+doCompileOrder action compileOrder = do
     content <- C8.readFile compileOrder
 
-    maybeError <- f $ fromRight [] $ parseCompileOrder compileOrder content
+    maybeError <- foldM packageAction (Right ()) $ packageList content
     case maybeError of
       Left message -> fail $ "Build errored: " ++ message
       _ -> return ()
 
     where
-        f [] = return $ Right ()
-        f (x:xs) = do
-            maybeError <- runExceptT $ packageAction $ explodePackageName x
-            case maybeError of 
-                Left err -> return $ Left err
-                Right _ -> f xs
+        packageList content = fromRight [] $ parseCompileOrder compileOrder content
+        packageAction (Left x) = const $ return $ Left x
+        packageAction _ = runExceptT . (doPackage action $ takeDirectory compileOrder)
+
+doPackage :: PackageAction
+          -> FilePath
+          -> Step
+          -> ExceptT String IO ()
+doPackage packageAction repo step = do
+    oldDirectory <- liftIO $ getCurrentDirectory
+    liftIO $ setCurrentDirectory $ repo </> pkgName
+
+    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
+    content <- liftIO $ C8.readFile infoFile
+
+    pkg <- case parse parseInfoFile infoFile content of
+        Left left -> throwE $ show left
+        Right pkg -> return pkg
+
+    packageAction pkg exploded
+
+    liftIO $ setCurrentDirectory oldDirectory
+    where
         explodePackageName (PackageName Nothing new) = ("", C8.unpack new)
         explodePackageName (PackageName (Just old) new) = ((C8.unpack old) ++ "%", C8.unpack new)
-        packageAction = doPackage $ takeDirectory compileOrder
+        exploded = explodePackageName step
+        pkgName = snd exploded
 
 getCompileOrders :: IO [FilePath]
 getCompileOrders = do
