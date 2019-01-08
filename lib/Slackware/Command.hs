@@ -12,9 +12,10 @@ import Slackware.CompileOrder ( Step(..)
 import           Config ( Config(..)
                         , parseConfig
                         )
-import Control.Monad (foldM)
 import Control.Monad.IO.Class (liftIO)
-import           Control.Exception (try)
+import           Control.Exception ( IOException
+                                   , try
+                                   )
 import Control.Monad.Trans.Except ( ExceptT(..)
                                   , runExceptT
                                   , throwE
@@ -26,7 +27,9 @@ import           Crypto.Hash ( Digest
                              )
 import           Data.Default.Class (def)
 import           Data.Either (fromRight)
-import Data.Foldable (foldrM)
+import Data.Foldable ( foldlM
+                     , foldrM
+                     )
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
@@ -37,8 +40,11 @@ import           Network.HTTP.Req ( HttpException
 import           Slackware.Package ( parseInfoFile
                                    , Package(..)
                                    )
-import           Slackware.Download (get)
+import           Slackware.Download ( filename
+                                    , get
+                                    )
 import System.Directory ( createDirectoryIfMissing
+                        , doesPathExist
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
@@ -63,6 +69,9 @@ import Text.Megaparsec (parse)
 
 type PackageAction = Package -> (String, String) -> ExceptT String IO ()
 
+md5sum :: BSL.ByteString -> Digest MD5
+md5sum = hashlazy
+
 runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
 runSlackBuild slackBuild environment = do
     old <- getEnvironment
@@ -84,9 +93,6 @@ runSlackBuild slackBuild environment = do
         , child_user = Nothing
         , use_process_jobs = False
         }
-
-md5sum :: BSL.ByteString -> Digest MD5
-md5sum = hashlazy
 
 installpkg :: (String, String) -> Package -> String -> String -> ExceptT String IO ()
 installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callProcess'
@@ -136,33 +142,35 @@ downloadPackageSource :: PackageAction
 downloadPackageSource pkg _ = do
     liftIO $ putStrLn "Downloading sources"
 
-    let tarballs = downloads pkg
-
     downloadUrls
-        <- case foldrM (\x -> ((:) <$> x <*>) . pure) [] (get <$> tarballs) of
-            Nothing -> throwE "Found unsupported download URL type"
-            Just downloadUrls -> return downloadUrls
+        <- let f (x, y) acc = case get x of
+                (Just x') -> do
+                    sum <- liftIO $ tryReadChecksum x
+                    return $ case sum of
+                        (Right sum) | sum == y -> acc
+                        otherwise -> (x', y) : acc
+                Nothing -> throwE "Found unsupported download URL type"
+            in foldrM f [] $ zip (downloads pkg) (checksums pkg)
 
-    caught <- liftIO $ tryDownload downloadUrls
-    _ <- case caught of
+    caught <- liftIO $ tryDownload $ fst <$> downloadUrls
+    sums <- case caught of
         Left e -> throwE $ show e
         Right unit -> return unit
 
-    let filenames = (C8.unpack . snd . (C8.breakEnd ('/' ==))) <$> tarballs
-    sums <- liftIO $ mapM (fmap md5sum . BSL.readFile) filenames
-
-    if sums /= (checksums pkg)
+    if sums /= (snd <$> downloadUrls)
         then throwE "Checksum mismatch"
         else return ()
 
-    where tryDownload :: [Req ()] -> IO (Either HttpException ())
-          tryDownload downloadUrls = try $ mapM_ (runReq def) downloadUrls
+    where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
+          tryDownload = try . mapM (runReq def)
+          tryReadChecksum :: C8.ByteString -> IO (Either IOException (Digest MD5))
+          tryReadChecksum = try . (fmap md5sum) . BSL.readFile . C8.unpack . filename
 
 doCompileOrder :: PackageAction -> String -> IO ()
 doCompileOrder action compileOrder = do
     content <- C8.readFile compileOrder
 
-    maybeError <- foldM packageAction (Right ()) $ packageList content
+    maybeError <- foldlM packageAction (Right ()) $ packageList content
     case maybeError of
       Left message -> fail $ "Build errored: " ++ message
       _ -> return ()

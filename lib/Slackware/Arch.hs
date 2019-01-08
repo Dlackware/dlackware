@@ -8,7 +8,6 @@ import Data.Either (fromRight)
 import Data.List (isPrefixOf)
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
-                       , Token
                        , anySingle
                        , parse
                        , many
