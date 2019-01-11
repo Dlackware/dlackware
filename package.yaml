@@ -4,7 +4,7 @@ github:              "Dlackware/dlackware"
 license:             GPL-3
 author:              "Eugene Wissner"
 maintainer:          "info@dlackware.com"
-copyright:           "2018 Eugene Wissner"
+copyright:           "2018-2019 Eugene Wissner"
 
 extra-source-files:
 - README.md
@@ -13,6 +13,7 @@ extra-source-files:
 description: Dlackware Gnome build system and installer
 
 dependencies:
+- ansi-terminal
 - base >= 4.7 && < 5
 - bytestring
 - cryptonite

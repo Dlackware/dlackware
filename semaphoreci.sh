@@ -13,7 +13,7 @@ setup() {
 }
 
 test() {
-	$STACK --no-terminal test
+	$STACK --no-terminal test --pedantic
 }
 
 $1

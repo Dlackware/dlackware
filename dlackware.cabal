@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0c8b35c66037a67b8ff3b58e36d4b525a21512dc7426d8dc071a49307c4bac6d
+-- hash: 8af9bfb0fab5a619e1b353b41e70475bcb95e372015052c28c4e0e0b939c66a3
 
 name:           dlackware
 version:        1.0.0.0
@@ -11,7 +11,7 @@ homepage:       https://github.com/Dlackware/dlackware#readme
 bug-reports:    https://github.com/Dlackware/dlackware/issues
 author:         Eugene Wissner
 maintainer:     info@dlackware.com
-copyright:      2018 Eugene Wissner
+copyright:      2018-2019 Eugene Wissner
 license:        GPL-3
 build-type:     Simple
 cabal-version:  >= 1.10
@@ -30,6 +30,7 @@ library
       Slackware.Command
       Slackware.CompileOrder
       Slackware.Download
+      Slackware.Log
       Slackware.Package
   other-modules:
       Paths_dlackware
@@ -37,6 +38,7 @@ library
       lib
   build-depends:
       HsYAML
+    , ansi-terminal
     , base >=4.7 && <5
     , bytestring
     , conduit
@@ -65,6 +67,7 @@ executable dlackware
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       HsYAML
+    , ansi-terminal
     , base >=4.7 && <5
     , bytestring
     , conduit
@@ -100,6 +103,7 @@ test-suite dlackware-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       HsYAML
+    , ansi-terminal
     , base >=4.7 && <5
     , bytestring
     , conduit

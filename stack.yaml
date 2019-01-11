@@ -2,6 +2,3 @@ resolver: lts-13.2
 
 packages:
 - .
-
-extra-deps:
-- HsYAML-0.1.1.2

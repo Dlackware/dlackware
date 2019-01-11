@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Slackware.Command ( build
                          , downloadSource
                          , install
@@ -9,9 +10,12 @@ import Slackware.Arch ( grepSlackBuild
 import Slackware.CompileOrder ( Step(..)
                               , parseCompileOrder
                               )
-import           Config ( Config(..)
-                        , parseConfig
-                        )
+import Slackware.Log ( Level(..)
+                     , console
+                     )
+import Config ( Config(..)
+              , parseConfig
+              )
 import Control.Monad.IO.Class (liftIO)
 import           Control.Exception ( IOException
                                    , try
@@ -44,7 +48,6 @@ import           Slackware.Download ( filename
                                     , get
                                     )
 import System.Directory ( createDirectoryIfMissing
-                        , doesPathExist
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
@@ -105,10 +108,9 @@ installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callPr
 
 buildPackage :: PackageAction
 buildPackage pkg (old, pkgName) = do
-    liftIO $ putStrLn $ "Building package " ++ pkgName
-
     downloadPackageSource pkg (old, pkgName)
 
+    liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
     let slackBuild = pkgName <.> "SlackBuild"
 
     (buildNumber, archNoarch) <- liftIO $ grepSlackBuild <$> (readFile slackBuild)
@@ -139,16 +141,16 @@ installPackage pkg (old, pkgName) = do
     installpkg (old, pkgName) pkg arch buildNumber
 
 downloadPackageSource :: PackageAction
-downloadPackageSource pkg _ = do
-    liftIO $ putStrLn "Downloading sources"
+downloadPackageSource pkg (_, pkgName) = do
+    liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack pkgName
 
     downloadUrls
         <- let f (x, y) acc = case get x of
                 (Just x') -> do
-                    sum <- liftIO $ tryReadChecksum x
-                    return $ case sum of
-                        (Right sum) | sum == y -> acc
-                        otherwise -> (x', y) : acc
+                    checksumOrE <- liftIO $ tryReadChecksum x
+                    return $ case checksumOrE of
+                        (Right checksum) | checksum == y -> acc
+                        _ -> (x', y) : acc
                 Nothing -> throwE "Found unsupported download URL type"
             in foldrM f [] $ zip (downloads pkg) (checksums pkg)
 
