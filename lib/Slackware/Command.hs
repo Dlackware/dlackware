@@ -16,10 +16,11 @@ import Slackware.Log ( Level(..)
 import Config ( Config(..)
               , parseConfig
               )
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
-import           Control.Exception ( IOException
-                                   , try
-                                   )
+import Control.Exception ( IOException
+                         , try
+                         )
 import Control.Monad.Trans.Except ( ExceptT(..)
                                   , runExceptT
                                   , throwE
@@ -44,15 +45,17 @@ import           Network.HTTP.Req ( HttpException
 import           Slackware.Package ( parseInfoFile
                                    , Package(..)
                                    )
-import           Slackware.Download ( filename
-                                    , get
-                                    )
+import Slackware.Download ( filename
+                          , get
+                          )
 import System.Directory ( createDirectoryIfMissing
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
 import System.Environment (getEnvironment)
-import System.Exit (ExitCode(..))
+import System.Exit ( ExitCode(..)
+                   , exitFailure
+                   )
 import System.FilePath ( FilePath
                        , (</>)
                        , (<.>)
@@ -101,7 +104,7 @@ installpkg :: (String, String) -> Package -> String -> String -> ExceptT String 
 installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callProcess'
     where
         tryIO = ExceptT . tryIOError
-        fullPath = "/var/cache/dlackware/" ++ pkgName ++ "-" ++ (version pkg)
+        fullPath = "/var/cache/dlackware/" ++ pkgName ++ "-" ++ version pkg
             ++ "-" ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
         callProcess' = callProcess "/sbin/upgradepkg"
             ["--reinstall", "--install-new", old ++ fullPath]
@@ -113,18 +116,17 @@ buildPackage pkg (old, pkgName) = do
     liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
     let slackBuild = pkgName <.> "SlackBuild"
 
-    (buildNumber, archNoarch) <- liftIO $ grepSlackBuild <$> (readFile slackBuild)
+    (buildNumber, archNoarch) <- liftIO $ grepSlackBuild <$> readFile slackBuild
     unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
-    let arch = if (length archNoarch) > 1
+    let arch = if length archNoarch > 1
             then archNoarch
             else uname unameM
 
-    (_, _, _, processHandle) <- liftIO $ (runSlackBuild slackBuild [("VERSION", version pkg)]) >>= createProcess
+    (_, _, _, processHandle) <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)] >>= createProcess
     code <- liftIO $ waitForProcess processHandle
 
     case code of
-        ExitSuccess -> do
-            installpkg (old, pkgName) pkg arch buildNumber
+        ExitSuccess -> installpkg (old, pkgName) pkg arch buildNumber
 
         _ -> throwE "Built package installation failed"
 
@@ -132,9 +134,9 @@ installPackage :: PackageAction
 installPackage pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
 
-    (buildNumber, archNoarch) <- grepSlackBuild <$> (liftIO $ readFile slackBuild)
+    (buildNumber, archNoarch) <- grepSlackBuild <$> liftIO (readFile slackBuild)
     unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
-    let arch = if (length archNoarch) > 1
+    let arch = if length archNoarch > 1
             then archNoarch
             else uname unameM
 
@@ -159,14 +161,12 @@ downloadPackageSource pkg (_, pkgName) = do
         Left e -> throwE $ show e
         Right unit -> return unit
 
-    if sums /= (snd <$> downloadUrls)
-        then throwE "Checksum mismatch"
-        else return ()
+    when (sums /= (snd <$> downloadUrls)) $ throwE "Checksum mismatch"
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
           tryDownload = try . mapM (runReq def)
           tryReadChecksum :: C8.ByteString -> IO (Either IOException (Digest MD5))
-          tryReadChecksum = try . (fmap md5sum) . BSL.readFile . C8.unpack . filename
+          tryReadChecksum = try . fmap md5sum . BSL.readFile . C8.unpack . filename
 
 doCompileOrder :: PackageAction -> String -> IO ()
 doCompileOrder action compileOrder = do
@@ -174,20 +174,20 @@ doCompileOrder action compileOrder = do
 
     maybeError <- foldlM packageAction (Right ()) $ packageList content
     case maybeError of
-      Left message -> fail $ "Build errored: " ++ message
+      Left message -> console Fatal (T.pack message) >> exitFailure
       _ -> return ()
 
     where
         packageList content = fromRight [] $ parseCompileOrder compileOrder content
         packageAction (Left x) = const $ return $ Left x
-        packageAction _ = runExceptT . (doPackage action $ takeDirectory compileOrder)
+        packageAction _ = runExceptT . doPackage action (takeDirectory compileOrder)
 
 doPackage :: PackageAction
           -> FilePath
           -> Step
           -> ExceptT String IO ()
 doPackage packageAction repo step = do
-    oldDirectory <- liftIO $ getCurrentDirectory
+    oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> pkgName
 
     let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
@@ -202,7 +202,7 @@ doPackage packageAction repo step = do
     liftIO $ setCurrentDirectory oldDirectory
     where
         explodePackageName (PackageName Nothing new) = ("", C8.unpack new)
-        explodePackageName (PackageName (Just old) new) = ((C8.unpack old) ++ "%", C8.unpack new)
+        explodePackageName (PackageName (Just old) new) = (C8.unpack old ++ "%", C8.unpack new)
         exploded = explodePackageName step
         pkgName = snd exploded
 
@@ -210,7 +210,7 @@ getCompileOrders :: IO [FilePath]
 getCompileOrders = do
     configContent <- BSL.readFile "etc/dlackware.yaml"
     let config = fromRight undefined $ parseConfig configContent
-    let f x = (T.unpack $ reposRoot config) </> (T.unpack x)
+    let f x = T.unpack (reposRoot config) </> T.unpack x
     return $ fmap f (repos config)
 
 build :: IO ()
