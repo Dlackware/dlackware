@@ -41,7 +41,7 @@ instance Monoid Step where
 
 instance Show Step where
     show (PackageName Nothing new) = C8.unpack new
-    show (PackageName (Just old) new) = (C8.unpack old) ++ ('%' : (C8.unpack new))
+    show (PackageName (Just old) new) = C8.unpack old ++ ('%' : C8.unpack new)
 
 percent :: GenParser Word8
 percent = char 0x25
@@ -49,8 +49,8 @@ percent = char 0x25
 package :: GenParser (Maybe Step)
 package = do
     old <- takeWhile1P Nothing $ \c -> c /= 0xA && c /= 0x25
-    new <- optional $ percent *> (takeWhile1P Nothing (/= 0xA))
-    return $ Just $ PackageName ((const old) <$> new) (fromMaybe old new)
+    new <- optional $ percent *> takeWhile1P Nothing (/= 0xA)
+    return $ Just $ PackageName (old <$ new) $ fromMaybe old new
 
 emptyLine :: GenParser (Maybe Step)
 emptyLine = newline >> mempty
@@ -64,4 +64,4 @@ line = emptyLine
    <|> package
 
 parseCompileOrder :: String -> C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) [Step]
-parseCompileOrder = (parse $ catMaybes <$> many line)
+parseCompileOrder = parse $ catMaybes <$> many line

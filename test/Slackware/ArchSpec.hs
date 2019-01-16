@@ -14,34 +14,33 @@ import           Test.Hspec ( Spec
 spec :: Spec
 spec = do
     describe "parseArch" $ do
-        it "returns i586 for i586" $ do
+        it "returns i586 for i586" $
             let actual = "i586"
-            let expected = "i586"
-            (parseArch actual) `shouldBe` (Right expected)
+                expected = "i586"
+             in parseArch actual `shouldBe` Right expected
 
-        it "returns i586 for i?86" $ do
+        it "returns i586 for i?86" $
             let actual = "i686"
-            let expected = "i586"
-            (parseArch actual) `shouldBe` (Right expected)
+                expected = "i586"
+             in parseArch actual `shouldBe` Right expected
 
-        it "returns arm for arm*" $ do
+        it "returns arm for arm*" $
             let actual = "armv7l"
-            let expected = "arm"
-            (parseArch actual) `shouldBe` (Right expected)
+                expected = "arm"
+             in parseArch actual `shouldBe` Right expected
 
-        it "parses x86_64" $ do
+        it "parses x86_64" $
             let actual = "x86_64"
-            (isLeft $ parseArch actual) `shouldBe` True
+             in isLeft (parseArch actual) `shouldBe` True
 
-    describe "uname" $ do
-        it "returns uname output if the parser fails" $ do
+    describe "uname" $
+        it "returns uname output if the parser fails" $
             let actual = "x86_64\n"
-            let expected = "x86_64"
-            (uname actual) `shouldBe` expected
+                expected = "x86_64"
+             in uname actual `shouldBe` expected
 
-    describe "grepSlackBuild" $ do
-        it "extracts build number" $ do
+    describe "grepSlackBuild" $
+        it "extracts build number" $
             let actual = grepSlackBuild "BUILD=${BUILD:-1}"
-            let expected = ("1", "")
-
-            actual `shouldBe` expected
+                expected = ("1", "")
+             in actual `shouldBe` expected

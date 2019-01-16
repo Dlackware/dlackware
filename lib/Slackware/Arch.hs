@@ -36,7 +36,7 @@ parseArch = parse parser mempty
             return arch
 
 uname :: String -> String
-uname unameM = do
+uname unameM =
     let unameM' = init unameM -- Remove newline
      in fromRight unameM' $ parseArch unameM'
 

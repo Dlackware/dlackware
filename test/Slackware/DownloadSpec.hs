@@ -9,9 +9,9 @@ import           Test.Hspec ( Spec
                             )
 
 spec :: Spec
-spec = do
-    describe "filename" $ do
-        it "returns the filename of the downloaded file" $ do
+spec =
+    describe "filename" $
+        it "returns the filename of the downloaded file" $
             let expected = C8.pack "filename.tar.gz"
-            let actual = filename $ C8.pack "http://some.url/dir/filename.tar.gz"
-            actual `shouldBe` expected
+                actual = filename $ C8.pack "http://some.url/dir/filename.tar.gz"
+             in actual `shouldBe` expected

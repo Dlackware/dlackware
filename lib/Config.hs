@@ -22,13 +22,13 @@ instance Eq Config where
 
 instance FromYAML Config where
     parseYAML = withMap "Config" $ \m -> Config
-        <$> m .: (T.pack "reposRoot")
-        <*> m .: (T.pack "repos")
+        <$> m .: T.pack "reposRoot"
+        <*> m .: T.pack "repos"
 
 parseConfig :: BS.ByteString -> Either String Config
 parseConfig source =
     case decode source of
-      Left err     -> Left err
-      Right []     -> Left "Configuration is empty"
-      Right (x:[]) -> Right x
-      _            -> Left "Expected only one document"
+      Left err  -> Left err
+      Right []  -> Left "Configuration is empty"
+      Right [x] -> Right x
+      _         -> Left "Expected only one document"

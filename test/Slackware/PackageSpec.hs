@@ -18,7 +18,7 @@ import Text.Megaparsec (parse)
 import Text.Megaparsec.Error (ParseErrorBundle)
 
 parseInfoFile' :: C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) Package
-parseInfoFile' = (parse parseInfoFile) ""
+parseInfoFile' = parse parseInfoFile ""
 
 infoDownload1 :: C8.ByteString
 infoDownload1 = "PKGNAM=\"pkgnam\"\n\
@@ -28,17 +28,17 @@ infoDownload1 = "PKGNAM=\"pkgnam\"\n\
             \MD5SUM=\"0102030405060708090a0b0c0d0e0f10\"\n"
 
 spec :: Spec
-spec = do
+spec =
     describe "parseInfoFile" $ do
-        it "returns package on a valid input" $ do
+        it "returns package on a valid input" $
             isRight (parseInfoFile' infoDownload1) `shouldBe` True
 
-        it "returns an array with one element if one download is given" $ do
+        it "returns an array with one element if one download is given" $
             let length' = length . checksums
-                actual = length' <$> (parseInfoFile' infoDownload1)
+                actual = length' <$> parseInfoFile' infoDownload1
              in fromRight 0 actual `shouldBe` 1
 
-        it "translates checksum characters into the binary format" $ do
-            let actual = (show . head . checksums) <$> (parseInfoFile' infoDownload1)
+        it "translates checksum characters into the binary format" $
+            let actual = show . head . checksums <$> parseInfoFile' infoDownload1
                 expected = "0102030405060708090a0b0c0d0e0f10"
              in fromRight "" actual `shouldBe` expected

@@ -35,23 +35,9 @@ data Package = Package { version :: String
                        , checksums :: [Digest MD5]
                        }
 
-packageName :: GenParser C8.ByteString
-packageName = do
-    _ <- string "PKGNAM=\""
-    result <- takeWhile1P Nothing (0x22 /=)
-    _ <- string "\"\n"
-    return result
-
-packageVersion :: GenParser C8.ByteString
-packageVersion = do
-    _ <- string "VERSION=\""
-    result <- takeWhile1P Nothing (0x22 /=)
-    _ <- string "\"\n"
-    return result
-
-packageHomepage :: GenParser C8.ByteString
-packageHomepage = do
-    _ <- string "HOMEPAGE=\""
+variableEntry :: C8.ByteString -> GenParser C8.ByteString
+variableEntry variable = do
+    _ <- string (C8.append variable "=\"")
     result <- takeWhile1P Nothing (0x22 /=)
     _ <- string "\"\n"
     return result
@@ -93,9 +79,9 @@ packageChecksums = do
 
 parseInfoFile :: GenParser Package
 parseInfoFile = do
-    _ <- packageName
-    version' <- packageVersion
-    homepage' <- packageHomepage
+    _ <- variableEntry "PKGNAM"
+    version' <- variableEntry "VERSION"
+    homepage' <- variableEntry "HOMEPAGE"
     download <- packageDownloads
     md5sum <- packageChecksums
     eof

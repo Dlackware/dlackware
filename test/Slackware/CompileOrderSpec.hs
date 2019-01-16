@@ -14,45 +14,45 @@ import           Test.Hspec ( Spec
 spec :: Spec
 spec = do
     describe "parseCompileOrder" $ do
-        it "splits into lines" $ do
+        it "splits into lines" $
             let actual = "package1\n\
                          \package2\n"
-            let expected = [ PackageName Nothing "package1"
+                expected = [ PackageName Nothing "package1"
                            , PackageName Nothing "package2"
                            ]
-            (parseCompileOrder "" actual) `shouldBe` (Right expected)
+             in parseCompileOrder "" actual `shouldBe` Right expected
 
-        it "parses empty file" $ do
+        it "parses empty file" $
             let actual = ""
-            let expected = []
-            (parseCompileOrder "" actual) `shouldBe` (Right expected)
+                expected = []
+             in parseCompileOrder "" actual `shouldBe` Right expected
 
-        it "skips empty lines" $ do
+        it "skips empty lines" $
             let actual = "\npackage\n\n"
-            let expected = [PackageName Nothing "package"]
-            (parseCompileOrder "" actual) `shouldBe` (Right expected)
+                expected = [PackageName Nothing "package"]
+             in parseCompileOrder "" actual `shouldBe` Right expected
 
-        it "skips comments" $ do
+        it "skips comments" $
             let actual = "# Comment\n"
-            let expected = []
-            (parseCompileOrder "" actual) `shouldBe` (Right expected)
+                expected = []
+             in parseCompileOrder "" actual `shouldBe` Right expected
 
-        it "parses replacement package" $ do
+        it "parses replacement package" $
             let actual = "a%b"
-            let expected = [PackageName (Just "a") "b"]
-            (parseCompileOrder "" actual) `shouldBe` (Right expected)
+                expected = [PackageName (Just "a") "b"]
+             in parseCompileOrder "" actual `shouldBe` Right expected
 
-        it "discards invalid replacement package" $ do
+        it "discards invalid replacement package" $
             let actual = "a%"
-            (isLeft $ parseCompileOrder "" actual) `shouldBe` True
+             in isLeft (parseCompileOrder "" actual) `shouldBe` True
 
     describe "show Step" $ do
-        it "shows only new package" $ do
+        it "shows only new package" $
             let actual = PackageName Nothing "package"
-            let expected = "package"
-            (show actual) `shouldBe` expected
+                expected = "package"
+             in show actual `shouldBe` expected
 
-        it "shows old and replacement packages" $ do
+        it "shows old and replacement packages" $
             let actual = PackageName (Just "old") "new"
-            let expected = "old%new"
-            (show actual) `shouldBe` expected
+                expected = "old%new"
+             in show actual `shouldBe` expected
