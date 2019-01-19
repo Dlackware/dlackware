@@ -30,21 +30,22 @@ import           Crypto.Hash ( Digest
                              , MD5
                              , hashlazy
                              )
-import           Data.Default.Class (def)
-import           Data.Either (fromRight)
+import Data.Default.Class (def)
+import Data.Either (fromRight)
 import Data.Foldable ( foldlM
                      , foldrM
                      )
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
-import           Network.HTTP.Req ( HttpException
-                                  , Req
-                                  , runReq
-                                  )
-import           Slackware.Package ( parseInfoFile
-                                   , Package(..)
-                                   )
+import qualified Data.Text.IO as T.IO
+import Network.HTTP.Req ( HttpException
+                        , Req
+                        , runReq
+                        )
+import Slackware.Package ( parseInfoFile
+                         , Package(..)
+                         )
 import Slackware.Download ( filename
                           , get
                           )
@@ -109,36 +110,27 @@ installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callPr
         callProcess' = callProcess "/sbin/upgradepkg"
             ["--reinstall", "--install-new", old ++ fullPath]
 
-buildPackage :: PackageAction
-buildPackage pkg (old, pkgName) = do
+buildPackage :: String -> PackageAction
+buildPackage unameM pkg (old, pkgName) = do
     downloadPackageSource pkg (old, pkgName)
 
     liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
     let slackBuild = pkgName <.> "SlackBuild"
 
-    (buildNumber, archNoarch) <- liftIO $ grepSlackBuild <$> readFile slackBuild
-    unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
-    let arch = if length archNoarch > 1
-            then archNoarch
-            else uname unameM
+    (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
     (_, _, _, processHandle) <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)] >>= createProcess
     code <- liftIO $ waitForProcess processHandle
 
     case code of
         ExitSuccess -> installpkg (old, pkgName) pkg arch buildNumber
-
         _ -> throwE "Built package installation failed"
 
-installPackage :: PackageAction
-installPackage pkg (old, pkgName) = do
+installPackage :: String -> PackageAction
+installPackage unameM pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
 
-    (buildNumber, archNoarch) <- grepSlackBuild <$> liftIO (readFile slackBuild)
-    unameM <- liftIO $ readProcess "/usr/bin/uname" ["-m"] ""
-    let arch = if length archNoarch > 1
-            then archNoarch
-            else uname unameM
+    (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
     installpkg (old, pkgName) pkg arch buildNumber
 
@@ -217,7 +209,8 @@ build :: IO ()
 build = do
     createDirectoryIfMissing False "/tmp/dlackware"
     compileOrders <- getCompileOrders
-    mapM_ (doCompileOrder buildPackage) compileOrders
+    unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
+    mapM_ (doCompileOrder $ buildPackage unameM) compileOrders
 
 downloadSource :: IO ()
 downloadSource = do
@@ -227,4 +220,5 @@ downloadSource = do
 install :: IO ()
 install = do
     compileOrders <- getCompileOrders
-    mapM_ (doCompileOrder installPackage) compileOrders
+    unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
+    mapM_ (doCompileOrder $ installPackage unameM) compileOrders

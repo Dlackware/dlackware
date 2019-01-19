@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Slackware.Arch ( parseArch
                       , grepSlackBuild
                       , uname
@@ -5,7 +6,7 @@ module Slackware.Arch ( parseArch
 
 import Control.Monad.Combinators (some)
 import Data.Either (fromRight)
-import Data.List (isPrefixOf)
+import qualified Data.Text as T
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
                        , anySingle
@@ -47,12 +48,12 @@ buildNumber = do
     _ <- char '}'
     return n
 
-grepSlackBuild :: String -> (String, String)
-grepSlackBuild slackBuild
-  = foldr f mempty $ lines slackBuild
+grepSlackBuild :: String -> T.Text -> (String, String)
+grepSlackBuild unameM slackBuild
+  = foldr f (mempty, unameM) $ T.lines slackBuild
       where
           f line (build, arch)
-              | "BUILD=" `isPrefixOf` line = (parseBuildNumber line, arch)
-              | "ARCH=" `isPrefixOf` line = (build, "noarch")
+              | "BUILD=" `T.isPrefixOf` line = (parseBuildNumber (T.unpack line), arch)
+              | "ARCH=" `T.isPrefixOf` line = (build, "noarch")
               | otherwise = (build, arch)
           parseBuildNumber = fromRight mempty . parse buildNumber mempty

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Slackware.ArchSpec (spec) where
 
 import Slackware.Arch ( grepSlackBuild
@@ -39,8 +40,16 @@ spec = do
                 expected = "x86_64"
              in uname actual `shouldBe` expected
 
-    describe "grepSlackBuild" $
+    describe "grepSlackBuild" $ do
         it "extracts build number" $
-            let actual = grepSlackBuild "BUILD=${BUILD:-1}"
+            let actual = grepSlackBuild mempty "BUILD=${BUILD:-1}"
                 expected = ("1", "")
+             in actual `shouldBe` expected
+        it "finds ARCH=noarch" $
+            let actual = grepSlackBuild mempty "ARCH=noarch"
+                expected = ("", "noarch")
+             in actual `shouldBe` expected
+        it "defaults to the given arch if ARCH=noarch couldn't be found" $
+            let actual = grepSlackBuild "x86_64" ""
+                expected = ("", "x86_64")
              in actual `shouldBe` expected
