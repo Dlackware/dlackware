@@ -50,6 +50,7 @@ import Slackware.Download ( filename
                           , get
                           )
 import System.Directory ( createDirectoryIfMissing
+                        , doesFileExist
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
@@ -101,38 +102,50 @@ runSlackBuild slackBuild environment = do
         , use_process_jobs = False
         }
 
-installpkg :: (String, String) -> Package -> String -> String -> ExceptT String IO ()
-installpkg (old, pkgName) pkg arch buildNumber = withExceptT show $ tryIO callProcess'
+installpkg :: String -> String -> ExceptT String IO ()
+installpkg old fullPkgName = withExceptT show $ tryIO callProcess'
     where
         tryIO = ExceptT . tryIOError
-        fullPath = "/var/cache/dlackware/" ++ pkgName ++ "-" ++ version pkg
-            ++ "-" ++ arch ++ "-" ++ buildNumber ++ "_dlack.txz"
+        fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
         callProcess' = callProcess "/sbin/upgradepkg"
             ["--reinstall", "--install-new", old ++ fullPath]
 
+buildFullPackageName :: String -> Package -> String -> String -> String
+buildFullPackageName pkgName pkg arch buildNumber
+    = pkgName ++ "-" ++ version pkg
+    ++ "-" ++ arch
+    ++ "-" ++ buildNumber ++ "_dlack"
+
 buildPackage :: String -> PackageAction
 buildPackage unameM pkg (old, pkgName) = do
-    downloadPackageSource pkg (old, pkgName)
-
-    liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
     let slackBuild = pkgName <.> "SlackBuild"
-
     (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
-    (_, _, _, processHandle) <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)] >>= createProcess
-    code <- liftIO $ waitForProcess processHandle
+    let fullPkgName = buildFullPackageName pkgName pkg arch buildNumber
+    let pkgtoolsDb = "/var/lib/pkgtools/packages/" ++ fullPkgName
 
-    case code of
-        ExitSuccess -> installpkg (old, pkgName) pkg arch buildNumber
-        _ -> throwE "Built package installation failed"
+    alreadyInstalled <- liftIO $ doesFileExist pkgtoolsDb
+    if alreadyInstalled
+    then return ()
+    else do
+        liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
+
+        downloadPackageSource pkg (old, pkgName)
+        (_, _, _, processHandle)
+            <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
+            >>= createProcess
+
+        code <- liftIO $ waitForProcess processHandle
+        case code of
+            ExitSuccess -> installpkg old fullPkgName
+            _ -> throwE "Built package installation failed"
 
 installPackage :: String -> PackageAction
 installPackage unameM pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
-
     (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
-    installpkg (old, pkgName) pkg arch buildNumber
+    installpkg old $ buildFullPackageName pkgName pkg arch buildNumber
 
 downloadPackageSource :: PackageAction
 downloadPackageSource pkg (_, pkgName) = do
