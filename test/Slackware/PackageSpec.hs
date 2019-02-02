@@ -42,3 +42,11 @@ spec =
             let actual = show . head . checksums <$> parseInfoFile' infoDownload1
                 expected = "0102030405060708090a0b0c0d0e0f10"
              in fromRight "" actual `shouldBe` expected
+
+        it "accepts an empty downloads list" $
+            let infoDownload0 = "PKGNAM=\"pkgnam\"\n\
+                \VERSION=\"1.2.3\"\n\
+                \HOMEPAGE=\"homepage\"\n\
+                \DOWNLOAD=\"\"\n\
+                \MD5SUM=\"\"\n"
+             in isRight (parseInfoFile' infoDownload0) `shouldBe` True

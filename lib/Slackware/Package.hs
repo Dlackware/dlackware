@@ -4,7 +4,7 @@ module Slackware.Package ( Package(..)
                          , parseInfoFile
                          ) where
 
-import Control.Monad.Combinators ( some
+import Control.Monad.Combinators ( many
                                  , skipMany
                                  )
 import qualified Data.ByteString as B
@@ -52,7 +52,7 @@ packageDownload = do
 packageDownloads :: GenParser [C8.ByteString]
 packageDownloads = do
     _ <- string "DOWNLOAD=\""
-    result <- some packageDownload
+    result <- many packageDownload
     _ <- string "\"\n"
     return result
 
@@ -73,7 +73,7 @@ packageChecksum = do
 packageChecksums :: GenParser [C8.ByteString]
 packageChecksums = do
     _ <- string "MD5SUM=\""
-    result <- some packageChecksum
+    result <- many packageChecksum
     _ <- string "\"\n"
     return result
 
