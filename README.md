@@ -1,6 +1,7 @@
 # Dlackware Gnome build system and installer
 
 [![Build Status](https://semaphoreci.com/api/v1/belka-ew/dlackware/branches/master/badge.svg)](https://semaphoreci.com/belka-ew/dlackware)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://choosealicense.com/licenses/gpl-3.0/)
 
 Over the past few months we have created and tested gnome3 + pam + systemd on top of Slackware
 The SlackBuilds and order in which to install / build can be located on github.
