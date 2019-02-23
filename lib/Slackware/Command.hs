@@ -26,10 +26,10 @@ import Control.Monad.Trans.Except ( ExceptT(..)
                                   , throwE
                                   , withExceptT
                                   )
-import           Crypto.Hash ( Digest
-                             , MD5
-                             , hashlazy
-                             )
+import Crypto.Hash ( Digest
+                   , MD5
+                   , hashlazy
+                   )
 import Data.Default.Class (def)
 import Data.Either (fromRight)
 import Data.Foldable ( foldlM
@@ -49,6 +49,7 @@ import Slackware.Package ( parseInfoFile
 import Slackware.Download ( filename
                           , get
                           )
+import Slackware.Error (PackageError(..))
 import System.Directory ( createDirectoryIfMissing
                         , doesFileExist
                         , getCurrentDirectory
@@ -75,7 +76,7 @@ import System.Process ( CreateProcess(..)
                       )
 import Text.Megaparsec (parse)
 
-type PackageAction = Package -> (String, String) -> ExceptT String IO ()
+type PackageAction = Package -> (String, String) -> ExceptT PackageError IO ()
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
@@ -102,8 +103,8 @@ runSlackBuild slackBuild environment = do
         , use_process_jobs = False
         }
 
-installpkg :: String -> String -> ExceptT String IO ()
-installpkg old fullPkgName = withExceptT show $ tryIO callProcess'
+installpkg :: String -> String -> ExceptT PackageError IO ()
+installpkg old fullPkgName = withExceptT InstallError $ tryIO callProcess'
     where
         tryIO = ExceptT . tryIOError
         fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
@@ -138,7 +139,7 @@ buildPackage unameM pkg (old, pkgName) = do
         code <- liftIO $ waitForProcess processHandle
         case code of
             ExitSuccess -> installpkg old fullPkgName
-            _ -> throwE "Built package installation failed"
+            _ -> throwE BuildError
 
 installPackage :: String -> PackageAction
 installPackage unameM pkg (old, pkgName) = do
@@ -158,15 +159,15 @@ downloadPackageSource pkg (_, pkgName) = do
                     return $ case checksumOrE of
                         (Right checksum) | checksum == y -> acc
                         _ -> (x', y) : acc
-                Nothing -> throwE "Found unsupported download URL type"
+                Nothing -> throwE UnsupportedDownload
             in foldrM f [] $ zip (downloads pkg) (checksums pkg)
 
     caught <- liftIO $ tryDownload $ fst <$> downloadUrls
     sums <- case caught of
-        Left e -> throwE $ show e
+        Left e -> throwE $ DownloadError e
         Right unit -> return unit
 
-    when (sums /= (snd <$> downloadUrls)) $ throwE "Checksum mismatch"
+    when (sums /= (snd <$> downloadUrls)) $ throwE ChecksumMismatch
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
           tryDownload = try . mapM (runReq def)
@@ -179,7 +180,7 @@ doCompileOrder action compileOrder = do
 
     maybeError <- foldlM packageAction (Right ()) $ packageList content
     case maybeError of
-      Left message -> console Fatal (T.pack message) >> exitFailure
+      Left message -> console Fatal (T.pack $ show message) >> exitFailure
       _ -> return ()
 
     where
@@ -190,7 +191,7 @@ doCompileOrder action compileOrder = do
 doPackage :: PackageAction
           -> FilePath
           -> Step
-          -> ExceptT String IO ()
+          -> ExceptT PackageError IO ()
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> pkgName
@@ -199,7 +200,7 @@ doPackage packageAction repo step = do
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ show left
+        Left left -> throwE $ ParseError left
         Right pkg -> return pkg
 
     packageAction pkg exploded

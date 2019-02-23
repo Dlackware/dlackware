@@ -49,8 +49,8 @@ spent building programs)
 
 So here is an attempt to create a better build system with more potential.
 Please note, it is in *experimental* stage and is being tested only on
-Slackware-current. For building Gnome don't use `master`, but on of the
-releases. We still have to see if we can improve our build process.
+Slackware-current. For building Gnome don't use `master`, but the latest
+0.x release. We still have to see if we can improve our build process.
 
 ### How to give it a try
 

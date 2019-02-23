@@ -29,7 +29,8 @@ import Text.Megaparsec.Byte ( space
 
 type GenParser = Parsec Void C8.ByteString
 
-data Package = Package { version :: String
+data Package = Package { pkgname :: String
+                       , version :: String
                        , homepage :: C8.ByteString
                        , downloads :: [C8.ByteString]
                        , checksums :: [Digest MD5]
@@ -79,7 +80,7 @@ packageChecksums = do
 
 parseInfoFile :: GenParser Package
 parseInfoFile = do
-    _ <- variableEntry "PKGNAM"
+    pkgname' <- variableEntry "PKGNAM"
     version' <- variableEntry "VERSION"
     homepage' <- variableEntry "HOMEPAGE"
     download <- packageDownloads
@@ -87,4 +88,4 @@ parseInfoFile = do
     eof
 
     let md5sums = catMaybes $ digestFromByteString <$> md5sum
-    return $ Package (C8.unpack version') homepage' download md5sums
+    return $ Package (C8.unpack pkgname') (C8.unpack version') homepage' download md5sums
