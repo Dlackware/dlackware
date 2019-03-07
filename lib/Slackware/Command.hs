@@ -13,9 +13,9 @@ import Slackware.CompileOrder ( Step(..)
 import Slackware.Log ( Level(..)
                      , console
                      )
-import Config ( Config(..)
-              , parseConfig
-              )
+import Slackware.Config ( Config(..)
+                        , parseConfig
+                        )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
@@ -117,8 +117,8 @@ buildFullPackageName pkgName pkg arch buildNumber
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
 
-buildPackage :: String -> PackageAction
-buildPackage unameM pkg (old, pkgName) = do
+buildPackage :: T.Text -> String -> PackageAction
+buildPackage loggingDirectory unameM pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
     (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
@@ -131,7 +131,7 @@ buildPackage unameM pkg (old, pkgName) = do
     else do
         liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
 
-        downloadPackageSource pkg (old, pkgName)
+        downloadPackageSource loggingDirectory pkg (old, pkgName)
         (_, _, _, processHandle)
             <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
             >>= createProcess
@@ -141,15 +141,15 @@ buildPackage unameM pkg (old, pkgName) = do
             ExitSuccess -> installpkg old fullPkgName
             _ -> throwE BuildError
 
-installPackage :: String -> PackageAction
-installPackage unameM pkg (old, pkgName) = do
+installPackage :: T.Text -> String -> PackageAction
+installPackage _ unameM pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
     (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
 
     installpkg old $ buildFullPackageName pkgName pkg arch buildNumber
 
-downloadPackageSource :: PackageAction
-downloadPackageSource pkg (_, pkgName) = do
+downloadPackageSource :: T.Text -> PackageAction
+downloadPackageSource _ pkg (_, pkgName) = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack pkgName
 
     downloadUrls
@@ -212,27 +212,41 @@ doPackage packageAction repo step = do
         exploded = explodePackageName step
         pkgName = snd exploded
 
-getCompileOrders :: IO [FilePath]
-getCompileOrders = do
+readConfiguration :: IO Config
+readConfiguration = do
     configContent <- BSL.readFile "etc/dlackware.yaml"
     let config = fromRight undefined $ parseConfig configContent
+
+    createDirectoryIfMissing True $ T.unpack $ loggingDirectory config
+    return config
+
+getCompileOrders :: Config -> [FilePath]
+getCompileOrders config =
     let f x = T.unpack (reposRoot config) </> T.unpack x
-    return $ fmap f (repos config)
+     in fmap f (repos config)
 
 build :: IO ()
 build = do
-    createDirectoryIfMissing False "/tmp/dlackware"
-    compileOrders <- getCompileOrders
+    config <- readConfiguration
     unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    mapM_ (doCompileOrder $ buildPackage unameM) compileOrders
+    createDirectoryIfMissing False $ T.unpack $ temporaryDirectory config
+
+    let compileOrders = getCompileOrders config
+    let loggingDirectory' = loggingDirectory config
+    mapM_ (doCompileOrder $ buildPackage loggingDirectory' unameM) compileOrders
 
 downloadSource :: IO ()
 downloadSource = do
-    compileOrders <- getCompileOrders
-    mapM_ (doCompileOrder downloadPackageSource) compileOrders
+    config <- readConfiguration
+    let compileOrders = getCompileOrders config
+    let loggingDirectory' = loggingDirectory config
+    mapM_ (doCompileOrder $ downloadPackageSource loggingDirectory') compileOrders
 
 install :: IO ()
 install = do
-    compileOrders <- getCompileOrders
+    config <- readConfiguration
     unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    mapM_ (doCompileOrder $ installPackage unameM) compileOrders
+
+    let compileOrders = getCompileOrders config
+    let loggingDirectory' = loggingDirectory config
+    mapM_ (doCompileOrder $ installPackage loggingDirectory' unameM) compileOrders

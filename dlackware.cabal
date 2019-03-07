@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 612e0c93d71bd96d039540b62a89b21f262cebb350d8979dd59a2e59a670c5c1
+-- hash: f1b878c0859c931928212d23df0f6cc4d2d3a67f02ad239bd906a743ecc592a7
 
 name:           dlackware
 version:        1.0.0.0
@@ -25,10 +25,10 @@ source-repository head
 
 library
   exposed-modules:
-      Config
       Slackware.Arch
       Slackware.Command
       Slackware.CompileOrder
+      Slackware.Config
       Slackware.Download
       Slackware.Error
       Slackware.Log
@@ -93,9 +93,9 @@ test-suite dlackware-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      ConfigSpec
       Slackware.ArchSpec
       Slackware.CompileOrderSpec
+      Slackware.ConfigSpec
       Slackware.DownloadSpec
       Slackware.ErrorSpec
       Slackware.PackageSpec
