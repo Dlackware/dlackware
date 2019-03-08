@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f1b878c0859c931928212d23df0f6cc4d2d3a67f02ad239bd906a743ecc592a7
+-- hash: a3ab7907f78014851af83956cd6764518c2fbc4d93002e069572a129d25ba5f7
 
 name:           dlackware
 version:        1.0.0.0
@@ -31,6 +31,7 @@ library
       Slackware.Config
       Slackware.Download
       Slackware.Error
+      Slackware.Info
       Slackware.Log
       Slackware.Package
   other-modules:
@@ -98,7 +99,7 @@ test-suite dlackware-test
       Slackware.ConfigSpec
       Slackware.DownloadSpec
       Slackware.ErrorSpec
-      Slackware.PackageSpec
+      Slackware.InfoSpec
       Paths_dlackware
   hs-source-dirs:
       test

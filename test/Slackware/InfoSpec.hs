@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Slackware.PackageSpec (spec) where
+module Slackware.InfoSpec (spec) where
 
 import qualified Data.ByteString.Char8 as C8
 import Data.Either ( fromRight
                    , isRight
                    )
 import Data.Void (Void)
-import Slackware.Package ( Package(..)
-                         , parseInfoFile
-                         )
+import Slackware.Info ( PackageInfo(..)
+                      , parseInfoFile
+                      )
 import Test.Hspec ( Spec
                   , describe
                   , it
@@ -17,7 +17,7 @@ import Test.Hspec ( Spec
 import Text.Megaparsec (parse)
 import Text.Megaparsec.Error (ParseErrorBundle)
 
-parseInfoFile' :: C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) Package
+parseInfoFile' :: C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) PackageInfo
 parseInfoFile' = parse parseInfoFile ""
 
 infoDownload1 :: C8.ByteString

@@ -13,19 +13,16 @@ import Slackware.CompileOrder ( Step(..)
 import Slackware.Log ( Level(..)
                      , console
                      )
-import Slackware.Config ( Config(..)
-                        , parseConfig
-                        )
+import qualified Slackware.Config as Config
+import Slackware.Package
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
                          , try
                          )
-import Control.Monad.Trans.Except ( ExceptT(..)
-                                  , runExceptT
-                                  , throwE
-                                  , withExceptT
-                                  )
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.Reader
 import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
@@ -43,9 +40,9 @@ import Network.HTTP.Req ( HttpException
                         , Req
                         , runReq
                         )
-import Slackware.Package ( parseInfoFile
-                         , Package(..)
-                         )
+import Slackware.Info ( parseInfoFile
+                      , PackageInfo(..)
+                      )
 import Slackware.Download ( filename
                           , get
                           )
@@ -76,8 +73,6 @@ import System.Process ( CreateProcess(..)
                       )
 import Text.Megaparsec (parse)
 
-type PackageAction = Package -> (String, String) -> ExceptT PackageError IO ()
-
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
@@ -103,24 +98,26 @@ runSlackBuild slackBuild environment = do
         , use_process_jobs = False
         }
 
-installpkg :: String -> String -> ExceptT PackageError IO ()
-installpkg old fullPkgName = withExceptT InstallError $ tryIO callProcess'
+installpkg :: String -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+installpkg old fullPkgName =
+    tryIO >>= either (throwE . InstallError) return
     where
-        tryIO = ExceptT . tryIOError
+        tryIO = liftIO $ tryIOError callProcess'
         fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
         callProcess' = callProcess "/sbin/upgradepkg"
             ["--reinstall", "--install-new", old ++ fullPath]
 
-buildFullPackageName :: String -> Package -> String -> String -> String
+buildFullPackageName :: String -> PackageInfo -> String -> String -> String
 buildFullPackageName pkgName pkg arch buildNumber
     = pkgName ++ "-" ++ version pkg
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
 
-buildPackage :: T.Text -> String -> PackageAction
-buildPackage loggingDirectory unameM pkg (old, pkgName) = do
+buildPackage :: PackageAction
+buildPackage pkg (old, pkgName) = do
+    unameM' <- lift $ asks unameM
     let slackBuild = pkgName <.> "SlackBuild"
-    (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
+    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
     let fullPkgName = buildFullPackageName pkgName pkg arch buildNumber
     let pkgtoolsDb = "/var/lib/pkgtools/packages/" ++ fullPkgName
@@ -131,7 +128,7 @@ buildPackage loggingDirectory unameM pkg (old, pkgName) = do
     else do
         liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
 
-        downloadPackageSource loggingDirectory pkg (old, pkgName)
+        downloadPackageSource pkg (old, pkgName)
         (_, _, _, processHandle)
             <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
             >>= createProcess
@@ -141,15 +138,16 @@ buildPackage loggingDirectory unameM pkg (old, pkgName) = do
             ExitSuccess -> installpkg old fullPkgName
             _ -> throwE BuildError
 
-installPackage :: T.Text -> String -> PackageAction
-installPackage _ unameM pkg (old, pkgName) = do
+installPackage :: PackageAction
+installPackage pkg (old, pkgName) = do
     let slackBuild = pkgName <.> "SlackBuild"
-    (buildNumber, arch) <- grepSlackBuild unameM <$> liftIO (T.IO.readFile slackBuild)
+    unameM' <- lift $ asks unameM
+    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
     installpkg old $ buildFullPackageName pkgName pkg arch buildNumber
 
-downloadPackageSource :: T.Text -> PackageAction
-downloadPackageSource _ pkg (_, pkgName) = do
+downloadPackageSource :: PackageAction
+downloadPackageSource pkg (_, pkgName) = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack pkgName
 
     downloadUrls
@@ -163,10 +161,7 @@ downloadPackageSource _ pkg (_, pkgName) = do
             in foldrM f [] $ zip (downloads pkg) (checksums pkg)
 
     caught <- liftIO $ tryDownload $ fst <$> downloadUrls
-    sums <- case caught of
-        Left e -> throwE $ DownloadError e
-        Right unit -> return unit
-
+    sums <- either (throwE . DownloadError) return caught
     when (sums /= (snd <$> downloadUrls)) $ throwE ChecksumMismatch
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
@@ -174,24 +169,26 @@ downloadPackageSource _ pkg (_, pkgName) = do
           tryReadChecksum :: C8.ByteString -> IO (Either IOException (Digest MD5))
           tryReadChecksum = try . fmap md5sum . BSL.readFile . C8.unpack . filename
 
-doCompileOrder :: PackageAction -> String -> IO ()
-doCompileOrder action compileOrder = do
+doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO ()
+doCompileOrder unameM' config action compileOrder = do
     content <- C8.readFile compileOrder
 
     maybeError <- foldlM packageAction (Right ()) $ packageList content
     case maybeError of
       Left message -> console Fatal (T.pack $ show message) >> exitFailure
-      _ -> return ()
+      Right () -> return ()
 
     where
         packageList content = fromRight [] $ parseCompileOrder compileOrder content
         packageAction (Left x) = const $ return $ Left x
-        packageAction _ = runExceptT . doPackage action (takeDirectory compileOrder)
+        packageAction _ = flip runReaderT (PackageEnvironment unameM' config)
+                        . runExceptT
+                        . doPackage action (takeDirectory compileOrder)
 
 doPackage :: PackageAction
           -> FilePath
           -> Step
-          -> ExceptT PackageError IO ()
+          -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> pkgName
@@ -212,41 +209,43 @@ doPackage packageAction repo step = do
         exploded = explodePackageName step
         pkgName = snd exploded
 
-readConfiguration :: IO Config
+readConfiguration :: IO Config.Config
 readConfiguration = do
     configContent <- BSL.readFile "etc/dlackware.yaml"
-    let config = fromRight undefined $ parseConfig configContent
+    let config = fromRight undefined $ Config.parseConfig configContent
 
-    createDirectoryIfMissing True $ T.unpack $ loggingDirectory config
+    createDirectoryIfMissing True $ T.unpack $ Config.loggingDirectory config
     return config
 
-getCompileOrders :: Config -> [FilePath]
+collectRunInformation :: IO (String, Config.Config)
+collectRunInformation = do
+    config <- readConfiguration
+    unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
+    return (unameM', config)
+
+getCompileOrders :: Config.Config -> [FilePath]
 getCompileOrders config =
-    let f x = T.unpack (reposRoot config) </> T.unpack x
-     in fmap f (repos config)
+    let f x = T.unpack (Config.reposRoot config) </> T.unpack x
+     in fmap f (Config.repos config)
 
 build :: IO ()
 build = do
-    config <- readConfiguration
-    unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    createDirectoryIfMissing False $ T.unpack $ temporaryDirectory config
+    (unameM', config) <- collectRunInformation
+    createDirectoryIfMissing False $ T.unpack $ Config.temporaryDirectory config
 
     let compileOrders = getCompileOrders config
-    let loggingDirectory' = loggingDirectory config
-    mapM_ (doCompileOrder $ buildPackage loggingDirectory' unameM) compileOrders
+     in mapM_ (doCompileOrder unameM' config buildPackage) compileOrders
 
 downloadSource :: IO ()
 downloadSource = do
-    config <- readConfiguration
+    (unameM', config) <- collectRunInformation
+
     let compileOrders = getCompileOrders config
-    let loggingDirectory' = loggingDirectory config
-    mapM_ (doCompileOrder $ downloadPackageSource loggingDirectory') compileOrders
+     in mapM_ (doCompileOrder unameM' config downloadPackageSource) compileOrders
 
 install :: IO ()
 install = do
-    config <- readConfiguration
-    unameM <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
+    (unameM', config) <- collectRunInformation
 
     let compileOrders = getCompileOrders config
-    let loggingDirectory' = loggingDirectory config
-    mapM_ (doCompileOrder $ installPackage loggingDirectory' unameM) compileOrders
+     in mapM_ (doCompileOrder unameM' config installPackage) compileOrders
