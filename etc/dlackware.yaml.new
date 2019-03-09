@@ -1,5 +1,5 @@
 reposRoot: /opt/dlackware-scripts/gnome
-loggintDirectory: /var/log/dlackware
+loggingDirectory: /var/log/dlackware
 temporaryDirectory: /tmp/dlackware
 repos:
 - pam/compile-order

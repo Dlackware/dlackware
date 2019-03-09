@@ -4,6 +4,11 @@ module Slackware.Command ( build
                          , install
                          ) where
 
+import Conduit ( ZipSink(..)
+               , stdoutC
+               , withSinkFile
+               )
+import Data.Conduit.Process (sourceProcessWithConsumer)
 import Slackware.Arch ( grepSlackBuild
                       , uname
                       )
@@ -66,9 +71,7 @@ import System.IO.Error (tryIOError)
 import System.Process ( CreateProcess(..)
                       , StdStream(..)
                       , CmdSpec(..)
-                      , createProcess
                       , readProcess
-                      , waitForProcess
                       , callProcess
                       )
 import Text.Megaparsec (parse)
@@ -129,11 +132,14 @@ buildPackage pkg (old, pkgName) = do
         liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
 
         downloadPackageSource pkg (old, pkgName)
-        (_, _, _, processHandle)
-            <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
-            >>= createProcess
+        process <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
+        loggingDirectory' <- lift $ asks loggingDirectory
+        let logFile = loggingDirectory'
+                  </> (pkgName ++ "-" ++ version pkg ++ ".log")
+        (code, _) <- liftIO $ withSinkFile logFile $ \sink ->
+            let output = getZipSink $ ZipSink stdoutC *> ZipSink sink
+             in sourceProcessWithConsumer process output
 
-        code <- liftIO $ waitForProcess processHandle
         case code of
             ExitSuccess -> installpkg old fullPkgName
             _ -> throwE BuildError

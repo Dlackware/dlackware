@@ -7,11 +7,11 @@ module Slackware.Package ( PackageAction
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Data.Text as T
-import qualified Slackware.Config
+import qualified Slackware.Config as Config
 import Slackware.Info
 import Slackware.Error
 
-data PackageEnvironment = PackageEnvironment String Slackware.Config.Config
+data PackageEnvironment = PackageEnvironment String Config.Config
 
 type PackageAction = PackageInfo
                   -> (String, String)
@@ -20,6 +20,6 @@ type PackageAction = PackageInfo
 unameM :: PackageEnvironment -> String
 unameM (PackageEnvironment unameM' _) = unameM'
 
-loggingDirectory :: PackageEnvironment -> T.Text
+loggingDirectory :: PackageEnvironment -> String
 loggingDirectory (PackageEnvironment _ config)
-    = Slackware.Config.loggingDirectory config
+    = T.unpack $ Config.loggingDirectory config
