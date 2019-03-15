@@ -4,11 +4,7 @@ module Slackware.Command ( build
                          , install
                          ) where
 
-import Conduit ( ZipSink(..)
-               , stdoutC
-               , withSinkFile
-               )
-import Data.Conduit.Process (sourceProcessWithConsumer)
+import Conduit
 import Slackware.Arch ( grepSlackBuild
                       , uname
                       )
@@ -25,7 +21,6 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
                          , try
                          )
-import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Crypto.Hash ( Digest
@@ -52,12 +47,14 @@ import Slackware.Download ( filename
                           , get
                           )
 import Slackware.Error (PackageError(..))
+import Slackware.Process ( outErrProcess
+                         , runSlackBuild
+                         )
 import System.Directory ( createDirectoryIfMissing
                         , doesFileExist
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
-import System.Environment (getEnvironment)
 import System.Exit ( ExitCode(..)
                    , exitFailure
                    )
@@ -68,38 +65,13 @@ import System.FilePath ( FilePath
                        , takeDirectory
                        )
 import System.IO.Error (tryIOError)
-import System.Process ( CreateProcess(..)
-                      , StdStream(..)
-                      , CmdSpec(..)
-                      , readProcess
+import System.Process ( readProcess
                       , callProcess
                       )
 import Text.Megaparsec (parse)
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
-
-runSlackBuild :: FilePath -> [(String, String)] -> IO CreateProcess
-runSlackBuild slackBuild environment = do
-    old <- getEnvironment
-
-    return $ CreateProcess
-        { cmdspec = RawCommand ("." </> slackBuild) []
-        , cwd = Nothing
-        , env = Just $ mappend old environment
-        , std_in = Inherit
-        , std_out = Inherit
-        , std_err = Inherit
-        , close_fds = False
-        , create_group = False
-        , delegate_ctlc = False
-        , detach_console = False
-        , create_new_console = False
-        , new_session = False
-        , child_group = Nothing
-        , child_user = Nothing
-        , use_process_jobs = False
-        }
 
 installpkg :: String -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 installpkg old fullPkgName =
@@ -132,13 +104,14 @@ buildPackage pkg (old, pkgName) = do
         liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
 
         downloadPackageSource pkg (old, pkgName)
-        process <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
+
         loggingDirectory' <- lift $ asks loggingDirectory
         let logFile = loggingDirectory'
                   </> (pkgName ++ "-" ++ version pkg ++ ".log")
-        (code, _) <- liftIO $ withSinkFile logFile $ \sink ->
+        code <- liftIO $ withSinkFile logFile $ \sink -> do
             let output = getZipSink $ ZipSink stdoutC *> ZipSink sink
-             in sourceProcessWithConsumer process output
+            cp <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
+            outErrProcess cp output
 
         case code of
             ExitSuccess -> installpkg old fullPkgName

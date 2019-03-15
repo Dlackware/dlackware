@@ -24,7 +24,6 @@ dependencies:
 - optparse-applicative
 - directory
 - conduit
-- conduit-extra
 - data-default-class
 - megaparsec
 - parser-combinators

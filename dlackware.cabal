@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a3ab7907f78014851af83956cd6764518c2fbc4d93002e069572a129d25ba5f7
+-- hash: ce4b64b9c98a5400663bd5eacdf0877dcef1c912e0f1cf503c51a632166e8b75
 
 name:           dlackware
 version:        1.0.0.0
@@ -34,6 +34,7 @@ library
       Slackware.Info
       Slackware.Log
       Slackware.Package
+      Slackware.Process
   other-modules:
       Paths_dlackware
   hs-source-dirs:
@@ -44,7 +45,6 @@ library
     , base >=4.7 && <5
     , bytestring
     , conduit
-    , conduit-extra
     , cryptonite
     , cryptonite-conduit
     , data-default-class
@@ -73,7 +73,6 @@ executable dlackware
     , base >=4.7 && <5
     , bytestring
     , conduit
-    , conduit-extra
     , cryptonite
     , cryptonite-conduit
     , data-default-class
@@ -110,7 +109,6 @@ test-suite dlackware-test
     , base >=4.7 && <5
     , bytestring
     , conduit
-    , conduit-extra
     , cryptonite
     , cryptonite-conduit
     , data-default-class

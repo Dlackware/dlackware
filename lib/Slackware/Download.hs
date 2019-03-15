@@ -3,6 +3,7 @@ module Slackware.Download ( get
                           ) where
 import Conduit ( ZipSink(..)
                , getZipSink
+               , sinkFile
                )
 import Crypto.Hash ( Digest
                    , MD5
@@ -12,7 +13,6 @@ import qualified Data.ByteString.Char8 as C8
 import Data.Conduit ( (.|)
                     , runConduitRes
                     )
-import Data.Conduit.Binary (sinkFile)
 import Network.HTTP.Req ( GET (..)
                         , MonadHttp
                         , NoReqBody(..)
