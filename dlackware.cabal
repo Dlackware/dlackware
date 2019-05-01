@@ -1,11 +1,13 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ce4b64b9c98a5400663bd5eacdf0877dcef1c912e0f1cf503c51a632166e8b75
+-- hash: 66e3c29b7ee5e7ed51aaf4fd0047eee393d38ac5417fbb4f9318dc2eebe937b4
 
 name:           dlackware
-version:        1.0.0.0
+version:        1.0.1.0
 description:    Dlackware Gnome build system and installer
 homepage:       https://github.com/Dlackware/dlackware#readme
 bug-reports:    https://github.com/Dlackware/dlackware/issues
@@ -14,10 +16,9 @@ maintainer:     info@dlackware.com
 copyright:      2018-2019 Eugene Wissner
 license:        GPL-3
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
-    COPYING
     README.md
+    COPYING
 
 source-repository head
   type: git

@@ -46,7 +46,7 @@ import Slackware.Info ( parseInfoFile
 import Slackware.Download ( filename
                           , get
                           )
-import Slackware.Error (PackageError(..))
+import Slackware.Error
 import Slackware.Process ( outErrProcess
                          , runSlackBuild
                          )
@@ -75,39 +75,39 @@ md5sum = hashlazy
 
 installpkg :: String -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 installpkg old fullPkgName =
-    tryIO >>= either (throwE . InstallError) return
+    tryIO >>= either (throwE . PackageError fullPkgName . InstallError) return
     where
         tryIO = liftIO $ tryIOError callProcess'
         fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
         callProcess' = callProcess "/sbin/upgradepkg"
             ["--reinstall", "--install-new", old ++ fullPath]
 
-buildFullPackageName :: String -> PackageInfo -> String -> String -> String
-buildFullPackageName pkgName pkg arch buildNumber
-    = pkgName ++ "-" ++ version pkg
+buildFullPackageName :: PackageInfo -> String -> String -> String
+buildFullPackageName pkg arch buildNumber
+    = pkgname pkg ++ "-" ++ version pkg
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
 
 buildPackage :: PackageAction
-buildPackage pkg (old, pkgName) = do
+buildPackage pkg old = do
     unameM' <- lift $ asks unameM
-    let slackBuild = pkgName <.> "SlackBuild"
+    let slackBuild = pkgname pkg <.> "SlackBuild"
     (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
-    let fullPkgName = buildFullPackageName pkgName pkg arch buildNumber
+    let fullPkgName = buildFullPackageName pkg arch buildNumber
     let pkgtoolsDb = "/var/lib/pkgtools/packages/" ++ fullPkgName
 
     alreadyInstalled <- liftIO $ doesFileExist pkgtoolsDb
     if alreadyInstalled
     then return ()
     else do
-        liftIO $ console Info $ T.append "Building package " $ T.pack pkgName
+        liftIO $ console Info $ T.append "Building package " $ T.pack $ pkgname pkg
 
-        downloadPackageSource pkg (old, pkgName)
+        downloadPackageSource pkg old
 
         loggingDirectory' <- lift $ asks loggingDirectory
         let logFile = loggingDirectory'
-                  </> (pkgName ++ "-" ++ version pkg ++ ".log")
+                  </> (pkgname pkg ++ "-" ++ version pkg ++ ".log")
         code <- liftIO $ withSinkFile logFile $ \sink -> do
             let output = getZipSink $ ZipSink stdoutC *> ZipSink sink
             cp <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
@@ -115,19 +115,19 @@ buildPackage pkg (old, pkgName) = do
 
         case code of
             ExitSuccess -> installpkg old fullPkgName
-            _ -> throwE BuildError
+            _ -> throwE $ PackageError (pkgname pkg) BuildError
 
 installPackage :: PackageAction
-installPackage pkg (old, pkgName) = do
-    let slackBuild = pkgName <.> "SlackBuild"
+installPackage pkg old = do
+    let slackBuild = pkgname pkg <.> "SlackBuild"
     unameM' <- lift $ asks unameM
     (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
-    installpkg old $ buildFullPackageName pkgName pkg arch buildNumber
+    installpkg old $ buildFullPackageName pkg arch buildNumber
 
 downloadPackageSource :: PackageAction
-downloadPackageSource pkg (_, pkgName) = do
-    liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack pkgName
+downloadPackageSource pkg _ = do
+    liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
 
     downloadUrls
         <- let f (x, y) acc = case get x of
@@ -136,12 +136,12 @@ downloadPackageSource pkg (_, pkgName) = do
                     return $ case checksumOrE of
                         (Right checksum) | checksum == y -> acc
                         _ -> (x', y) : acc
-                Nothing -> throwE UnsupportedDownload
+                Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
             in foldrM f [] $ zip (downloads pkg) (checksums pkg)
 
     caught <- liftIO $ tryDownload $ fst <$> downloadUrls
-    sums <- either (throwE . DownloadError) return caught
-    when (sums /= (snd <$> downloadUrls)) $ throwE ChecksumMismatch
+    sums <- either (throwE . PackageError (pkgname pkg) . DownloadError) return caught
+    when (sums /= (snd <$> downloadUrls)) $ throwE $ PackageError (pkgname pkg) ChecksumMismatch
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
           tryDownload = try . mapM (runReq def)
@@ -176,10 +176,10 @@ doPackage packageAction repo step = do
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ ParseError left
+        Left left -> throwE $ PackageError pkgName $ ParseError left
         Right pkg -> return pkg
 
-    packageAction pkg exploded
+    packageAction pkg (fst exploded)
 
     liftIO $ setCurrentDirectory oldDirectory
     where

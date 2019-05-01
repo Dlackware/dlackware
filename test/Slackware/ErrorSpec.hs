@@ -1,6 +1,6 @@
 module Slackware.ErrorSpec (spec) where
 
-import Slackware.Error (PackageError(..))
+import Slackware.Error
 import Test.Hspec ( Spec
                   , describe
                   , it
@@ -8,8 +8,8 @@ import Test.Hspec ( Spec
                   )
 
 spec :: Spec
-spec =
-    describe "show PackageError" $ do
+spec = do
+    describe "show PackageErrorType" $ do
         it "has an error message for checksum mismatch" $
              let actual = show ChecksumMismatch 
               in null actual `shouldBe` False
@@ -19,3 +19,9 @@ spec =
         it "has an error message for build error" $
              let actual = show BuildError
               in null actual `shouldBe` False
+
+    describe "show PackageError" $
+        it "prepends the error with the package name" $
+            let pkgName = "pkg"
+                actual = show $ PackageError pkgName ChecksumMismatch
+             in take (length pkgName + 2) actual `shouldBe` pkgName ++ ": "
