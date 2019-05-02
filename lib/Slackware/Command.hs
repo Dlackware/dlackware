@@ -73,18 +73,18 @@ import Text.Megaparsec (parse)
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
-installpkg :: String -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+installpkg :: C8.ByteString -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 installpkg old fullPkgName =
     tryIO >>= either (throwE . PackageError fullPkgName . InstallError) return
     where
         tryIO = liftIO $ tryIOError callProcess'
         fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
         callProcess' = callProcess "/sbin/upgradepkg"
-            ["--reinstall", "--install-new", old ++ fullPath]
+            ["--reinstall", "--install-new", C8.unpack old ++ fullPath]
 
 buildFullPackageName :: PackageInfo -> String -> String -> String
 buildFullPackageName pkg arch buildNumber
-    = pkgname pkg ++ "-" ++ version pkg
+    = pkgname pkg ++ "-" ++ T.unpack (version pkg)
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
 
@@ -107,10 +107,10 @@ buildPackage pkg old = do
 
         loggingDirectory' <- lift $ asks loggingDirectory
         let logFile = loggingDirectory'
-                  </> (pkgname pkg ++ "-" ++ version pkg ++ ".log")
+                  </> (pkgname pkg ++ "-" ++ T.unpack (version pkg) ++ ".log")
         code <- liftIO $ withSinkFile logFile $ \sink -> do
             let output = getZipSink $ ZipSink stdoutC *> ZipSink sink
-            cp <- liftIO $ runSlackBuild slackBuild [("VERSION", version pkg)]
+            cp <- liftIO $ runSlackBuild slackBuild [("VERSION", T.unpack $ version pkg)]
             outErrProcess cp output
 
         case code of
@@ -154,7 +154,7 @@ doCompileOrder unameM' config action compileOrder = do
 
     maybeError <- foldlM packageAction (Right ()) $ packageList content
     case maybeError of
-      Left message -> console Fatal (T.pack $ show message) >> exitFailure
+      Left message -> console Fatal (showPackageError message) >> exitFailure
       Right () -> return ()
 
     where
@@ -170,21 +170,21 @@ doPackage :: PackageAction
           -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
-    liftIO $ setCurrentDirectory $ repo </> pkgName
+    liftIO $ setCurrentDirectory $ repo </> C8.unpack pkgName
 
-    let infoFile = joinPath [repo, pkgName, pkgName <.> "info"]
+    let infoFile = joinPath [repo, C8.unpack pkgName, C8.unpack pkgName <.> "info"]
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ PackageError pkgName $ ParseError left
+        Left left -> throwE $ PackageError (C8.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
 
     packageAction pkg (fst exploded)
 
     liftIO $ setCurrentDirectory oldDirectory
     where
-        explodePackageName (PackageName Nothing new) = ("", C8.unpack new)
-        explodePackageName (PackageName (Just old) new) = (C8.unpack old ++ "%", C8.unpack new)
+        explodePackageName (PackageName Nothing new) = ("", new)
+        explodePackageName (PackageName (Just old) new) = (C8.snoc old '%', new)
         exploded = explodePackageName step
         pkgName = snd exploded
 

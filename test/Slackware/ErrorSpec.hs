@@ -1,27 +1,36 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Slackware.ErrorSpec (spec) where
 
+import qualified Data.Text as T
 import Slackware.Error
+import Slackware.Info
 import Test.Hspec ( Spec
                   , describe
                   , it
                   , shouldBe
                   )
+import Text.Megaparsec (parse)
 
 spec :: Spec
-spec = do
-    describe "show PackageErrorType" $ do
+spec =
+    describe "showPackageError" $ do
         it "has an error message for checksum mismatch" $
-             let actual = show ChecksumMismatch 
-              in null actual `shouldBe` False
+             let actual = showPackageError $ PackageError "" ChecksumMismatch 
+              in T.null actual `shouldBe` False
         it "has an error message for unsupported download" $
-             let actual = show UnsupportedDownload
-              in null actual `shouldBe` False
+             let actual = showPackageError $ PackageError "" UnsupportedDownload
+              in T.null actual `shouldBe` False
         it "has an error message for build error" $
-             let actual = show BuildError
-              in null actual `shouldBe` False
+             let actual = showPackageError $ PackageError "" BuildError
+              in T.null actual `shouldBe` False
 
-    describe "show PackageError" $
         it "prepends the error with the package name" $
             let pkgName = "pkg"
-                actual = show $ PackageError pkgName ChecksumMismatch
-             in take (length pkgName + 2) actual `shouldBe` pkgName ++ ": "
+                actual = showPackageError $ PackageError pkgName ChecksumMismatch
+             in T.isPrefixOf (T.pack $ pkgName ++ ": ") actual `shouldBe` True
+
+        it "shows info file parse errors" $ do
+            let info = "PRGNAM=\"pkgnam\"\n"
+                Left bundle = parse parseInfoFile "" info
+                actual = showPackageError $ PackageError "" $ ParseError bundle
+            length (T.lines actual) > 1 `shouldBe` True

@@ -1,10 +1,15 @@
+{-#  LANGUAGE OverloadedStrings #-}
 module Slackware.Error ( PackageError(..)
                        , PackageErrorType(..)
+                       , showPackageError
                        ) where
 
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.Text as T
 import Data.Void (Void)
-import Text.Megaparsec.Error (ParseErrorBundle(..))
+import Text.Megaparsec.Error ( ParseErrorBundle(..)
+                             , errorBundlePretty
+                             )
 import Network.HTTP.Req (HttpException)
 
 data PackageErrorType
@@ -15,15 +20,19 @@ data PackageErrorType
   | DownloadError HttpException
   | ParseError (ParseErrorBundle C8.ByteString Void)
 
-instance Show PackageErrorType where
-    show ChecksumMismatch = "Checksum mismatch"
-    show UnsupportedDownload = "Found unsupported download URL type"
-    show BuildError = "Built package installation failed"
-    show (InstallError e) = show e
-    show (DownloadError e) = show e
-    show (ParseError e) = show e
+showPackageErrorType :: PackageErrorType -> T.Text
+showPackageErrorType ChecksumMismatch = "Checksum mismatch"
+showPackageErrorType UnsupportedDownload = "Found unsupported download URL type"
+showPackageErrorType BuildError = "Built package installation failed"
+showPackageErrorType (InstallError e) = T.pack $ show e
+showPackageErrorType (DownloadError e) = T.pack $ show e
+showPackageErrorType (ParseError e) = T.pack $ errorBundlePretty e
 
 data PackageError = PackageError String PackageErrorType
 
-instance Show PackageError where
-    show (PackageError pkgName errorType) = pkgName ++ ": " ++ show errorType
+showPackageError :: PackageError -> T.Text
+showPackageError (PackageError pkgName errorType) = T.concat
+    [ T.pack pkgName
+    , ": "
+    , showPackageErrorType errorType
+    ]

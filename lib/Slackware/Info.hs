@@ -9,6 +9,8 @@ import Control.Monad.Combinators ( many
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
 import Data.Maybe (catMaybes)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Crypto.Hash ( Digest
                    , MD5
                    , digestFromByteString
@@ -29,7 +31,7 @@ import Text.Megaparsec.Byte ( space
 type GenParser = Parsec Void C8.ByteString
 
 data PackageInfo = PackageInfo { pkgname :: String
-                               , version :: String
+                               , version :: T.Text
                                , homepage :: C8.ByteString
                                , downloads :: [C8.ByteString]
                                , checksums :: [Digest MD5]
@@ -87,4 +89,4 @@ parseInfoFile = do
     eof
 
     let md5sums = catMaybes $ digestFromByteString <$> md5sum
-    return $ PackageInfo (C8.unpack pkgname') (C8.unpack version') homepage' download md5sums
+    return $ PackageInfo (C8.unpack pkgname') (E.decodeUtf8 version') homepage' download md5sums
