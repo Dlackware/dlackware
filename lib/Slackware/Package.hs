@@ -15,7 +15,7 @@ import Slackware.Error
 data PackageEnvironment = PackageEnvironment String Config.Config
 
 type PackageAction = PackageInfo
-                  -> C8.ByteString
+                  -> T.Text
                   -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 
 unameM :: PackageEnvironment -> String

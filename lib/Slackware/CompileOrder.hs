@@ -7,29 +7,26 @@ import Control.Applicative ((<|>))
 import Control.Monad.Combinators ( many
                                  , optional
                                  )
-import qualified Data.ByteString.Char8 as C8
 import Data.Maybe ( catMaybes
                   , fromMaybe
                   )
 import Data.Semigroup (Semigroup(..))
+import qualified Data.Text as T
 import Data.Void (Void)
-import Data.Word (Word8)
 import Text.Megaparsec ( Parsec
                        , parse
                        , takeWhile1P
                        )
-import Text.Megaparsec.Byte ( newline
+import Text.Megaparsec.Char ( newline
                             , char
                             )
-import Text.Megaparsec.Byte.Lexer (skipLineComment)
+import Text.Megaparsec.Char.Lexer (skipLineComment)
 import Text.Megaparsec.Error (ParseErrorBundle)
 
-type GenParser = Parsec Void C8.ByteString
+type GenParser = Parsec Void T.Text
 
-data Step = PackageName (Maybe C8.ByteString) C8.ByteString
-
-instance Eq Step where
-    (PackageName a1 a2) == (PackageName b1 b2) = a1 == b1 && a2 == b2
+data Step = PackageName (Maybe T.Text) T.Text
+    deriving Eq
 
 instance Semigroup Step where
     (PackageName a1 a2) <> (PackageName b1 b2)
@@ -40,16 +37,16 @@ instance Monoid Step where
     mappend = (<>)
 
 instance Show Step where
-    show (PackageName Nothing new) = C8.unpack new
-    show (PackageName (Just old) new) = C8.unpack old ++ ('%' : C8.unpack new)
+    show (PackageName Nothing new) = T.unpack new
+    show (PackageName (Just old) new) = T.unpack old ++ ('%' : T.unpack new)
 
-percent :: GenParser Word8
-percent = char 0x25
+percent :: GenParser Char
+percent = char '%'
 
 package :: GenParser (Maybe Step)
 package = do
-    old <- takeWhile1P Nothing $ \c -> c /= 0xA && c /= 0x25
-    new <- optional $ percent *> takeWhile1P Nothing (/= 0xA)
+    old <- takeWhile1P Nothing $ \c -> c /= '\n' && c /= '%'
+    new <- optional $ percent *> takeWhile1P Nothing (/= '\n')
     return $ Just $ PackageName (old <$ new) $ fromMaybe old new
 
 emptyLine :: GenParser (Maybe Step)
@@ -63,5 +60,5 @@ line = emptyLine
    <|> comment
    <|> package
 
-parseCompileOrder :: String -> C8.ByteString -> Either (ParseErrorBundle C8.ByteString Void) [Step]
+parseCompileOrder :: String -> T.Text -> Either (ParseErrorBundle T.Text Void) [Step]
 parseCompileOrder = parse $ catMaybes <$> many line

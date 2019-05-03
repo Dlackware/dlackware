@@ -68,19 +68,21 @@ import System.IO.Error (tryIOError)
 import System.Process ( readProcess
                       , callProcess
                       )
-import Text.Megaparsec (parse)
+import Text.Megaparsec ( errorBundlePretty
+                       , parse
+                       )
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
-installpkg :: C8.ByteString -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+installpkg :: T.Text -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 installpkg old fullPkgName =
     tryIO >>= either (throwE . PackageError fullPkgName . InstallError) return
     where
         tryIO = liftIO $ tryIOError callProcess'
         fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
         callProcess' = callProcess "/sbin/upgradepkg"
-            ["--reinstall", "--install-new", C8.unpack old ++ fullPath]
+            ["--reinstall", "--install-new", T.unpack old ++ fullPath]
 
 buildFullPackageName :: PackageInfo -> String -> String -> String
 buildFullPackageName pkg arch buildNumber
@@ -150,15 +152,18 @@ downloadPackageSource pkg _ = do
 
 doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO ()
 doCompileOrder unameM' config action compileOrder = do
-    content <- C8.readFile compileOrder
+    content <- T.IO.readFile compileOrder
 
-    maybeError <- foldlM packageAction (Right ()) $ packageList content
+    packageList <- case parseCompileOrder compileOrder content of
+      Right right -> return right
+      Left left -> console Fatal (T.pack $ errorBundlePretty left) >> exitFailure
+
+    maybeError <- foldlM packageAction (Right ()) packageList
     case maybeError of
       Left message -> console Fatal (showPackageError message) >> exitFailure
       Right () -> return ()
 
     where
-        packageList content = fromRight [] $ parseCompileOrder compileOrder content
         packageAction (Left x) = const $ return $ Left x
         packageAction _ = flip runReaderT (PackageEnvironment unameM' config)
                         . runExceptT
@@ -170,13 +175,13 @@ doPackage :: PackageAction
           -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
-    liftIO $ setCurrentDirectory $ repo </> C8.unpack pkgName
+    liftIO $ setCurrentDirectory $ repo </> T.unpack pkgName
 
-    let infoFile = joinPath [repo, C8.unpack pkgName, C8.unpack pkgName <.> "info"]
+    let infoFile = joinPath [repo, T.unpack pkgName, T.unpack pkgName <.> "info"]
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ PackageError (C8.unpack pkgName) $ ParseError left
+        Left left -> throwE $ PackageError (T.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
 
     packageAction pkg (fst exploded)
@@ -184,7 +189,7 @@ doPackage packageAction repo step = do
     liftIO $ setCurrentDirectory oldDirectory
     where
         explodePackageName (PackageName Nothing new) = ("", new)
-        explodePackageName (PackageName (Just old) new) = (C8.snoc old '%', new)
+        explodePackageName (PackageName (Just old) new) = (T.snoc old '%', new)
         exploded = explodePackageName step
         pkgName = snd exploded
 
