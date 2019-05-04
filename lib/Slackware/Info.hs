@@ -32,8 +32,8 @@ type GenParser = Parsec Void C8.ByteString
 
 data PackageInfo = PackageInfo { pkgname :: String
                                , version :: T.Text
-                               , homepage :: C8.ByteString
-                               , downloads :: [C8.ByteString]
+                               , homepage :: T.Text
+                               , downloads :: [T.Text]
                                , checksums :: [Digest MD5]
                                }
 
@@ -89,4 +89,9 @@ parseInfoFile = do
     eof
 
     let md5sums = catMaybes $ digestFromByteString <$> md5sum
-    return $ PackageInfo (C8.unpack pkgname') (E.decodeUtf8 version') homepage' download md5sums
+    return $ PackageInfo
+        (C8.unpack pkgname')
+        (E.decodeUtf8 version')
+        (E.decodeUtf8 homepage')
+        (E.decodeUtf8 <$> download)
+        md5sums

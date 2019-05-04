@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Slackware.Config ( Config(..)
                         , parseConfig
                         ) where
@@ -10,6 +11,8 @@ import Data.YAML ( FromYAML
                  )
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TL.Builder
 
 data Config = Config
     { reposRoot  :: T.Text
@@ -25,10 +28,14 @@ instance FromYAML Config where
         <*> m .: T.pack "temporaryDirectory"
         <*> m .: T.pack "repos"
 
-parseConfig :: BS.ByteString -> Either String Config
-parseConfig source =
+buildErrorMessage :: String -> String -> T.Text
+buildErrorMessage path msg = TL.toStrict . TL.Builder.toLazyText
+    $ TL.Builder.fromString path <> ": " <> TL.Builder.fromString msg
+
+parseConfig :: String -> BS.ByteString -> Either T.Text Config
+parseConfig path source =
     case decode source of
-      Left err  -> Left err
-      Right []  -> Left "Configuration is empty"
+      Left err  -> Left $ buildErrorMessage path err
+      Right []  -> Left $ buildErrorMessage path "configuration is empty"
       Right [x] -> Right x
-      _         -> Left "Expected only one document"
+      _         -> Left $ buildErrorMessage path "expected only one document"

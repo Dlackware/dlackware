@@ -147,8 +147,8 @@ downloadPackageSource pkg _ = do
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
           tryDownload = try . mapM (runReq def)
-          tryReadChecksum :: C8.ByteString -> IO (Either IOException (Digest MD5))
-          tryReadChecksum = try . fmap md5sum . BSL.readFile . C8.unpack . filename
+          tryReadChecksum :: T.Text -> IO (Either IOException (Digest MD5))
+          tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 
 doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO ()
 doCompileOrder unameM' config action compileOrder = do
@@ -195,8 +195,11 @@ doPackage packageAction repo step = do
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
-    configContent <- BSL.readFile "etc/dlackware.yaml"
-    let config = fromRight undefined $ Config.parseConfig configContent
+    let configPath = "etc/dlackware.yaml"
+    configContent <- BSL.readFile configPath
+    config <- case Config.parseConfig configPath configContent of
+        Left x -> console Fatal x >> exitFailure
+        Right x -> return x
 
     createDirectoryIfMissing True $ T.unpack $ Config.loggingDirectory config
     return config
