@@ -6,7 +6,6 @@ module Slackware.Package ( PackageAction
 
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
-import Data.ByteString.Char8 as C8
 import Data.Text as T
 import qualified Slackware.Config as Config
 import Slackware.Info

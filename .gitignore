@@ -1,8 +1,7 @@
 /etc/dlackware.yaml
 
-.*.sw[op]
-tags
+/dist/
 
 .stack-work/
-dlackbuild.cabal
+/stack.yaml.lock
 *~

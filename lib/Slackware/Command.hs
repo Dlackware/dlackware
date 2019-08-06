@@ -27,8 +27,6 @@ import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
                    )
-import Data.Default.Class (def)
-import Data.Either (fromRight)
 import Data.Foldable ( foldlM
                      , foldrM
                      )
@@ -38,6 +36,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T.IO
 import Network.HTTP.Req ( HttpException
                         , Req
+                        , defaultHttpConfig
                         , runReq
                         )
 import Slackware.Info ( parseInfoFile
@@ -146,7 +145,7 @@ downloadPackageSource pkg _ = do
     when (sums /= (snd <$> downloadUrls)) $ throwE $ PackageError (pkgname pkg) ChecksumMismatch
 
     where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
-          tryDownload = try . mapM (runReq def)
+          tryDownload = try . mapM (runReq defaultHttpConfig)
           tryReadChecksum :: T.Text -> IO (Either IOException (Digest MD5))
           tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 

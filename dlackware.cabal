@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.1.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 66e3c29b7ee5e7ed51aaf4fd0047eee393d38ac5417fbb4f9318dc2eebe937b4
+-- hash: 7542b1086980c9b9606260cf26d2f012fd9c86c8f8ae1a029215a18bb7e81b5b
 
 name:           dlackware
 version:        1.0.1.0
@@ -48,7 +48,6 @@ library
     , conduit
     , cryptonite
     , cryptonite-conduit
-    , data-default-class
     , directory
     , filepath
     , megaparsec
@@ -76,7 +75,6 @@ executable dlackware
     , conduit
     , cryptonite
     , cryptonite-conduit
-    , data-default-class
     , directory
     , dlackware
     , filepath
@@ -112,7 +110,6 @@ test-suite dlackware-test
     , conduit
     , cryptonite
     , cryptonite-conduit
-    , data-default-class
     , directory
     , dlackware
     , filepath

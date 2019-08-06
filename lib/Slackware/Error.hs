@@ -4,13 +4,14 @@ module Slackware.Error ( PackageError(..)
                        , showPackageError
                        ) where
 
+import Control.Exception (displayException)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.Text as T
 import Data.Void (Void)
 import Text.Megaparsec.Error ( ParseErrorBundle(..)
                              , errorBundlePretty
                              )
-import Network.HTTP.Req (HttpException)
+import Network.HTTP.Req ( HttpException(..))
 
 data PackageErrorType
   = ChecksumMismatch
@@ -24,8 +25,8 @@ showPackageErrorType :: PackageErrorType -> T.Text
 showPackageErrorType ChecksumMismatch = "Checksum mismatch"
 showPackageErrorType UnsupportedDownload = "Found unsupported download URL type"
 showPackageErrorType BuildError = "Built package installation failed"
-showPackageErrorType (InstallError e) = T.pack $ show e
-showPackageErrorType (DownloadError e) = T.pack $ show e
+showPackageErrorType (InstallError e) = T.pack $ displayException e
+showPackageErrorType (DownloadError e) = T.pack $ displayException e
 showPackageErrorType (ParseError e) = T.pack $ errorBundlePretty e
 
 data PackageError = PackageError String PackageErrorType
