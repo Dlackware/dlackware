@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Config ( Config(..)
+                        , configPath
                         , parseConfig
                         ) where
 
@@ -20,6 +21,10 @@ data Config = Config
     , temporaryDirectory :: T.Text
     , repos      :: [T.Text]
     } deriving (Eq, Show)
+
+-- | Returns configuration path.
+configPath :: String
+configPath = "etc/dlackware.yaml"
 
 instance FromYAML Config where
     parseYAML = withMap "Config" $ \m -> Config

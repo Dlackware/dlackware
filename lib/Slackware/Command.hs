@@ -194,9 +194,8 @@ doPackage packageAction repo step = do
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
-    let configPath = "etc/dlackware.yaml"
-    configContent <- BSL.readFile configPath
-    config <- case Config.parseConfig configPath configContent of
+    configContent <- BSL.readFile Config.configPath
+    config <- case Config.parseConfig Config.configPath configContent of
         Left x -> console Fatal x >> exitFailure
         Right x -> return x
 
