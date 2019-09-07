@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a4629948192186105b50b6fb885a3f57ac300dc92617312062a0c45dab0fc2ae
+-- hash: 40c90bbd891371b58f711758e1e5dc3c8447c6a5a17981f283a5dffa2c6835b4
 
 name:           dlackware
 version:        1.0.1.0
@@ -36,6 +36,7 @@ library
       Slackware.Log
       Slackware.Package
       Slackware.Process
+      Slackware.Version
   other-modules:
       Paths_dlackware
   hs-source-dirs:
@@ -99,6 +100,7 @@ test-suite dlackware-test
       Slackware.DownloadSpec
       Slackware.ErrorSpec
       Slackware.InfoSpec
+      Slackware.VersionSpec
       Paths_dlackware
   hs-source-dirs:
       test
