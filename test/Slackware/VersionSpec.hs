@@ -11,7 +11,7 @@ import Test.Hspec ( Spec
 import Text.Megaparsec (parse)
 
 spec :: Spec
-spec =
+spec = do
     describe "parse" $ do
         it "parses into a valid Version structure" $
             let actual = parse versions "" "core:gdm:3.33.92:"
@@ -21,3 +21,8 @@ spec =
             let actual = parse versions "" "core:gdm:3.33.92:\n\
                                            \core:gedit:3.33.92:"
              in fromRight 0 (length <$> actual) `shouldBe` 2
+
+    describe "show" $
+        it "prints the name and the version separated by a colon" $
+            let actual = show $ Version "gdm" "3.33.92"
+             in actual `shouldBe` "gdm:3.33.92"

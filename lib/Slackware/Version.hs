@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Data and parser for Gnome "versions" files.
 module Slackware.Version
     ( Version(..)
@@ -6,6 +9,7 @@ module Slackware.Version
 
 import Control.Monad.Combinators (sepBy)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
                        , takeWhile1P
@@ -20,7 +24,10 @@ type GenParser = Parsec Void Text
 data Version = Version
     { name :: Text -- ^ Package name.
     , version :: Text -- ^ Package version.
-    } deriving (Eq, Show)
+    } deriving Eq
+
+instance Show Version where
+    show Version {..} = Text.unpack $ Text.intercalate ":" [name, version]
 
 identifier :: String -> GenParser Text
 identifier tokenName = takeWhile1P (Just tokenName) (/= ':')
@@ -31,10 +38,9 @@ versions = versionP `sepBy` eol
 
 versionP :: GenParser Version
 versionP = do
-    _ <- identifier "category"
-    _ <- char ':'
-    name' <- identifier "package name"
-    _ <- char ':'
-    version' <- identifier "package version"
-    _ <- char ':'
-    return $ Version { name = name', version = version' }
+    _ <- parseBlock "category"
+    name' <- parseBlock "package name"
+    version' <- parseBlock "package version"
+    return $ Version {name = name', version = version'}
+      where
+        parseBlock description = identifier description <* char ':'
