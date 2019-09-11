@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Applicative (Alternative(..))
 import Options.Applicative ( Parser
                            , ParserInfo
                            , execParser
@@ -20,6 +21,7 @@ data Program = Build
              | DownloadSource
              | Install
              | Upgrade String String
+             | UpgradeAll
 
 program :: Parser Program
 program = subparser
@@ -33,16 +35,20 @@ program = subparser
          (info (pure Install)
                (progDesc "Install built packages"))
        <> command "upgrade"
-         (info (Upgrade <$> strArgument (metavar "NAME")
-                        <*> strArgument (metavar "VERSION"))
-               (progDesc "Upgrade a package"))
+         (info (upgradeParser <|> pure UpgradeAll)
+               (progDesc "Upgrade a package (EXPERIMENTAL)"))
        )
+  where
+    upgradeParser = Upgrade
+        <$> strArgument (metavar "NAME")
+        <*> strArgument (metavar "VERSION")
 
 run :: Program -> IO ()
 run Build = build
 run DownloadSource = downloadSource
 run Install = install
 run (Upgrade pkgnam version) = upgrade pkgnam version
+run UpgradeAll = upgradeAll
 
 opts :: ParserInfo Program
 opts = info (program <**> helper) (header "Dlackware Build System")

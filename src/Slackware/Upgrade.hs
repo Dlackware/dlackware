@@ -1,4 +1,5 @@
-{-# Language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Slackware.Upgrade where
 
 import qualified Data.ByteString.Char8 as C8
@@ -13,7 +14,9 @@ import Data.Maybe ( isJust
 import Slackware.Config as Config
 import Slackware.CompileOrder
 import Slackware.Info
+import qualified Slackware.Version as Version
 import System.Directory ( createDirectoryIfMissing
+                        , getCurrentDirectory
                         , setCurrentDirectory
                         )
 import System.FilePath ( (</>)
@@ -25,7 +28,9 @@ import System.Process ( callCommand
                       , readCreateProcess
                       , shell
                       )
-import Text.Megaparsec (parse)
+import Text.Megaparsec ( errorBundlePretty
+                       , parse
+                       )
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
@@ -64,6 +69,7 @@ upgrade pkgnam toVersion = do
     maybeMatchingCompileOrder <- findM (doCompileOrder pkgnam) compileOrders
     let matchingCompileOrder = fromJust maybeMatchingCompileOrder
 
+    cwd <- getCurrentDirectory
     _ <- setCurrentDirectory $ takeDirectory matchingCompileOrder </> pkgnam
 
     let infoFile = pkgnam <.> "info"
@@ -88,11 +94,21 @@ upgrade pkgnam toVersion = do
          ++ "MD5SUM=\"" ++ unwords newChecksums ++ "\"\n"
 
     let group = takeFileName . takeDirectory $ matchingCompileOrder
-    callCommand $ "git add . && git commit -m \""
+    _ <- callCommand $ "git add . && git commit -m \""
         ++ group ++ "/" ++ pkgnam
         ++ ": Updated for version " ++ toVersion ++ "\""
+    setCurrentDirectory cwd
 
       where
         major fromVersion = T.init $ fst $ T.breakOnEnd "." fromVersion
         downloader url = flip readCreateProcess "" $ shell $ T.unpack $ T.concat
             [ "wget -q -O $(basename ", url, ") ", url, " && md5sum $(basename ", url, ")" ]
+
+upgradeAll :: IO ()
+upgradeAll = do
+    versions' <- Text.IO.readFile "etc/versions"
+    case parse Version.versions "etc/versions" versions' of
+            Left e -> error $ errorBundlePretty e
+            Right parsedVersions -> mapM_ upgrade' parsedVersions
+  where
+    upgrade' Version.Version{..} = upgrade (T.unpack name) (T.unpack version)
