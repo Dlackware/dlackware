@@ -1,6 +1,7 @@
 #!/bin/bash
 
 STACK=$SEMAPHORE_CACHE_DIR/stack
+export STACK_ROOT=$SEMAPHORE_CACHE_DIR/.stack
 
 setup() {
 	if [ ! -e "$STACK" ]
@@ -23,7 +24,7 @@ setup_lint() {
 }
 
 lint() {
-	$STACK --no-terminal exec hlint -- src test
+	$STACK --no-terminal exec hlint -- ./src ./lib ./test
 }
 
 $1
