@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 40c90bbd891371b58f711758e1e5dc3c8447c6a5a17981f283a5dffa2c6835b4
+-- hash: 825a85253d01279b4b7a1ed0e3c65abb6fed55c50b9827c7ce0bab2deb40d8ee
 
 name:           dlackware
 version:        1.0.1.0
@@ -117,6 +117,7 @@ test-suite dlackware-test
     , dlackware
     , filepath
     , hspec
+    , hspec-megaparsec
     , megaparsec
     , optparse-applicative
     , parser-combinators

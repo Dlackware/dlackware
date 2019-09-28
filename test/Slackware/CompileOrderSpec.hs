@@ -1,15 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Slackware.CompileOrderSpec (spec) where
+module Slackware.CompileOrderSpec
+    ( spec
+    ) where
 
-import Slackware.CompileOrder ( Step(..)
-                              , parseCompileOrder
-                              )
-import           Data.Either (isLeft)
-import           Test.Hspec ( Spec
-                            , describe
-                            , it
-                            , shouldBe
-                            )
+import Slackware.CompileOrder
+import Test.Hspec (Spec, describe, it, shouldBe)
+import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
 
 spec :: Spec
 spec = do
@@ -20,31 +16,31 @@ spec = do
                 expected = [ PackageName Nothing "package1"
                            , PackageName Nothing "package2"
                            ]
-             in parseCompileOrder "" actual `shouldBe` Right expected
+             in parseCompileOrder "" actual `shouldParse` expected
 
         it "parses empty file" $
             let actual = ""
                 expected = []
-             in parseCompileOrder "" actual `shouldBe` Right expected
+             in parseCompileOrder "" actual `shouldParse` expected
 
         it "skips empty lines" $
             let actual = "\npackage\n\n"
                 expected = [PackageName Nothing "package"]
-             in parseCompileOrder "" actual `shouldBe` Right expected
+             in parseCompileOrder "" actual `shouldParse` expected
 
         it "skips comments" $
             let actual = "# Comment\n"
                 expected = []
-             in parseCompileOrder "" actual `shouldBe` Right expected
+             in parseCompileOrder "" actual `shouldParse` expected
 
         it "parses replacement package" $
             let actual = "a%b"
                 expected = [PackageName (Just "a") "b"]
-             in parseCompileOrder "" actual `shouldBe` Right expected
+             in parseCompileOrder "" actual `shouldParse` expected
 
         it "discards invalid replacement package" $
             let actual = "a%"
-             in isLeft (parseCompileOrder "" actual) `shouldBe` True
+             in parseCompileOrder "" `shouldFailOn` actual
 
     describe "show Step" $ do
         it "shows only new package" $

@@ -56,3 +56,4 @@ tests:
     dependencies:
     - dlackware
     - hspec
+    - hspec-megaparsec

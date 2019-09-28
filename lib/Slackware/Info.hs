@@ -30,12 +30,13 @@ import Text.Megaparsec.Byte ( space
 
 type GenParser = Parsec Void C8.ByteString
 
-data PackageInfo = PackageInfo { pkgname :: String
-                               , version :: T.Text
-                               , homepage :: T.Text
-                               , downloads :: [T.Text]
-                               , checksums :: [Digest MD5]
-                               }
+data PackageInfo = PackageInfo
+    { pkgname :: String
+    , version :: T.Text
+    , homepage :: T.Text
+    , downloads :: [T.Text]
+    , checksums :: [Digest MD5]
+    } deriving (Eq, Show)
 
 variableEntry :: C8.ByteString -> GenParser C8.ByteString
 variableEntry variable = do

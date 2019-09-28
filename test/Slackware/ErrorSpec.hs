@@ -1,14 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Slackware.ErrorSpec (spec) where
+module Slackware.ErrorSpec
+    ( spec
+    ) where
 
-import qualified Data.Text as T
+import qualified Data.Text as Text
 import Slackware.Error
 import Slackware.Info
-import Test.Hspec ( Spec
-                  , describe
-                  , it
-                  , shouldBe
-                  )
+import Test.Hspec (Spec, describe, it, shouldNotSatisfy, shouldSatisfy)
 import Text.Megaparsec (parse)
 
 spec :: Spec
@@ -16,21 +14,19 @@ spec =
     describe "showPackageError" $ do
         it "has an error message for checksum mismatch" $
              let actual = showPackageError $ PackageError "" ChecksumMismatch 
-              in T.null actual `shouldBe` False
+              in actual `shouldNotSatisfy` Text.null
         it "has an error message for unsupported download" $
              let actual = showPackageError $ PackageError "" UnsupportedDownload
-              in T.null actual `shouldBe` False
+              in actual `shouldNotSatisfy` Text.null
         it "has an error message for build error" $
              let actual = showPackageError $ PackageError "" BuildError
-              in T.null actual `shouldBe` False
+              in actual `shouldNotSatisfy` Text.null
 
         it "prepends the error with the package name" $
-            let pkgName = "pkg"
-                actual = showPackageError $ PackageError pkgName ChecksumMismatch
-             in T.isPrefixOf (T.pack $ pkgName ++ ": ") actual `shouldBe` True
+            let actual = showPackageError $ PackageError "pkg" ChecksumMismatch
+             in actual `shouldSatisfy` Text.isPrefixOf "pkg: "
 
-        it "shows info file parse errors" $ do
-            let info = "PRGNAM=\"pkgnam\"\n"
-                Left bundle = parse parseInfoFile "" info
+        it "shows info file parse errors" $
+            let Left bundle = parse parseInfoFile "" "PRGNAM=\"pkgnam\"\n"
                 actual = showPackageError $ PackageError "" $ ParseError bundle
-            length (T.lines actual) > 1 `shouldBe` True
+             in actual `shouldSatisfy` ((> 1) . length . Text.lines)
