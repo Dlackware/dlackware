@@ -2,3 +2,5 @@ resolver: lts-14.7
 
 packages:
 - .
+
+pvp-bounds: both

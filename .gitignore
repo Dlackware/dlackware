@@ -5,4 +5,5 @@
 
 .stack-work/
 /stack.yaml.lock
+/dlackware.cabal
 *~
