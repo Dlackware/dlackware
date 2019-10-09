@@ -1,15 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 module Slackware.Upgrade where
 
+import Control.Monad (void)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 import qualified Data.Text.IO as Text.IO
 import Data.Either (fromRight)
+import qualified Data.Map.Strict as Map
 import Data.List (find)
 import Data.Maybe ( isJust
-                  , fromJust
+                  , fromMaybe
                   )
 import Slackware.Config as Config
 import Slackware.CompileOrder
@@ -67,7 +68,7 @@ upgrade pkgnam toVersion = do
 
     let compileOrders = getCompileOrders config
     maybeMatchingCompileOrder <- findM (doCompileOrder pkgnam) compileOrders
-    let matchingCompileOrder = fromJust maybeMatchingCompileOrder
+    let matchingCompileOrder = fromMaybe lookupError maybeMatchingCompileOrder
 
     cwd <- getCurrentDirectory
     _ <- setCurrentDirectory $ takeDirectory matchingCompileOrder </> pkgnam
@@ -100,6 +101,7 @@ upgrade pkgnam toVersion = do
     setCurrentDirectory cwd
 
       where
+        lookupError = error $ unwords [pkgnam, " wasn't found in any compile order"]
         major fromVersion = T.init $ fst $ T.breakOnEnd "." fromVersion
         downloader url = flip readCreateProcess "" $ shell $ T.unpack $ T.concat
             [ "wget -q -O $(basename ", url, ") ", url, " && md5sum $(basename ", url, ")" ]
@@ -109,6 +111,6 @@ upgradeAll = do
     versions' <- Text.IO.readFile "etc/versions"
     case parse Version.versions "etc/versions" versions' of
             Left e -> error $ errorBundlePretty e
-            Right parsedVersions -> mapM_ upgrade' parsedVersions
+            Right parsedVersions -> void $ Map.traverseWithKey upgrade' parsedVersions
   where
-    upgrade' Version.Version{..} = upgrade (T.unpack name) (T.unpack version)
+    upgrade' name version' = upgrade (T.unpack name) (T.unpack version')

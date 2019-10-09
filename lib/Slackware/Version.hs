@@ -1,15 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- | Data and parser for Gnome "versions" files.
 module Slackware.Version
-    ( Version(..)
-    , versions
+    ( versions
     ) where
 
 import Control.Monad.Combinators (someTill)
+import qualified Data.Map.Lazy as Map
+import Data.Map.Strict (Map)
 import Data.Text (Text)
-import qualified Data.Text as Text
 import Data.Void (Void)
 import Text.Megaparsec ( Parsec
                        , eof
@@ -24,30 +23,23 @@ import Text.Megaparsec.Char.Lexer (skipLineComment)
 
 type GenParser = Parsec Void Text
 
--- | Stores the package name and version.
-data Version = Version
-    { name :: Text -- ^ Package name.
-    , version :: Text -- ^ Package version.
-    } deriving Eq
-
-instance Show Version where
-    show Version {..} = Text.unpack $ Text.intercalate ":" [name, version]
-
 identifier :: String -> GenParser Text
-identifier tokenName
-    = takeWhile1P (Just tokenName) (\c -> c /= ':' && c /= '\n')
+identifier tokenName = takeWhile1P (Just tokenName) predicate
+  where
+    predicate delimiter = delimiter /= ':' && delimiter /= '\n'
 
 -- | Gnome "versions" file parser.
-versions :: GenParser [Version]
+versions :: GenParser (Map Text Text)
 versions = do
     _ <- optional $ skipLineComment "## " >> eol
-    someTill (versionP <* eol) newline <* eof
+    versions' <- someTill (version <* eol) newline <* eof
+    return $ Map.fromList versions'
 
-versionP :: GenParser Version
-versionP = do
+version :: GenParser (Text, Text)
+version = do
     _ <- parseBlock "category"
-    name' <- parseBlock "package name"
+    name <- parseBlock "package name"
     version' <- parseBlock "package version"
-    return $ Version {name = name', version = version'}
+    return (name, version')
       where
         parseBlock description = identifier description <* char ':'
