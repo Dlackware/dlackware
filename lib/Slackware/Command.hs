@@ -16,7 +16,6 @@ import Slackware.Log ( Level(..)
                      )
 import qualified Slackware.Config as Config
 import Slackware.Package
-import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
                          , try
@@ -27,9 +26,7 @@ import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
                    )
-import Data.Foldable ( foldlM
-                     , foldrM
-                     )
+import Data.Foldable (foldrM)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
@@ -74,14 +71,23 @@ import Text.Megaparsec ( errorBundlePretty
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
-installpkg :: T.Text -> String -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
-installpkg old fullPkgName =
-    tryIO >>= either (throwE . PackageError fullPkgName . InstallError) return
-    where
-        tryIO = liftIO $ tryIOError callProcess'
-        fullPath = "/var/cache/dlackware/" ++ fullPkgName ++ ".txz"
-        callProcess' = callProcess "/sbin/upgradepkg"
-            ["--reinstall", "--install-new", T.unpack old ++ fullPath]
+installpkg
+    :: T.Text
+    -> String
+    -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+installpkg old fullPkgName = do
+    processReturn <- liftIO $ tryIOError upgradepkg
+    either throw pure processReturn
+  where
+    throw = throwE . PackageError fullPkgName . InstallError
+    fullPath = concat
+        [ T.unpack old
+        , "/var/cache/dlackware/"
+        , fullPkgName
+        , ".txz"
+        ]
+    upgradepkg = callProcess "/sbin/upgradepkg"
+        ["--reinstall", "--install-new", fullPath]
 
 buildFullPackageName :: PackageInfo -> String -> String -> String
 buildFullPackageName pkg arch buildNumber
@@ -100,11 +106,11 @@ buildPackage pkg old = do
 
     alreadyInstalled <- liftIO $ doesFileExist pkgtoolsDb
     if alreadyInstalled
-    then return ()
+    then pure False
     else do
         liftIO $ console Info $ T.append "Building package " $ T.pack $ pkgname pkg
 
-        downloadPackageSource pkg old
+        _ <- downloadPackageSource pkg old
 
         loggingDirectory' <- lift $ asks loggingDirectory
         let logFile = loggingDirectory'
@@ -115,7 +121,7 @@ buildPackage pkg old = do
             outErrProcess cp output
 
         case code of
-            ExitSuccess -> installpkg old fullPkgName
+            ExitSuccess -> installpkg old fullPkgName >> pure True
             _ -> throwE $ PackageError (pkgname pkg) BuildError
 
 installPackage :: PackageAction
@@ -125,6 +131,7 @@ installPackage pkg old = do
     (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
     installpkg old $ buildFullPackageName pkg arch buildNumber
+    pure True
 
 downloadPackageSource :: PackageAction
 downloadPackageSource pkg _ = do
@@ -142,14 +149,17 @@ downloadPackageSource pkg _ = do
 
     caught <- liftIO $ tryDownload $ fst <$> downloadUrls
     sums <- either (throwE . PackageError (pkgname pkg) . DownloadError) return caught
-    when (sums /= (snd <$> downloadUrls)) $ throwE $ PackageError (pkgname pkg) ChecksumMismatch
+    if sums /= (snd <$> downloadUrls)
+       then throwE $ PackageError (pkgname pkg) ChecksumMismatch
+       else pure True
 
-    where tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
-          tryDownload = try . mapM (runReq defaultHttpConfig)
-          tryReadChecksum :: T.Text -> IO (Either IOException (Digest MD5))
-          tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
+  where
+    tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
+    tryDownload = try . mapM (runReq defaultHttpConfig)
+    tryReadChecksum :: T.Text -> IO (Either IOException (Digest MD5))
+    tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 
-doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO ()
+doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO Bool
 doCompileOrder unameM' config action compileOrder = do
     content <- T.IO.readFile compileOrder
 
@@ -157,21 +167,21 @@ doCompileOrder unameM' config action compileOrder = do
       Right right -> return right
       Left left -> console Fatal (T.pack $ errorBundlePretty left) >> exitFailure
 
-    maybeError <- foldlM packageAction (Right ()) packageList
+    maybeError <- packageAction packageList
     case maybeError of
       Left message -> console Fatal (showPackageError message) >> exitFailure
-      Right () -> return ()
+      Right evaluated -> pure $ or evaluated
 
     where
-        packageAction (Left x) = const $ return $ Left x
-        packageAction _ = flip runReaderT (PackageEnvironment unameM' config)
-                        . runExceptT
-                        . doPackage action (takeDirectory compileOrder)
+      packageAction
+            = flip runReaderT (PackageEnvironment unameM' config)
+            . runExceptT
+            . traverse (doPackage action (takeDirectory compileOrder))
 
 doPackage :: PackageAction
           -> FilePath
           -> Step
-          -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+          -> ExceptT PackageError (ReaderT PackageEnvironment IO) Bool
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> T.unpack pkgName
@@ -182,15 +192,16 @@ doPackage packageAction repo step = do
     pkg <- case parse parseInfoFile infoFile content of
         Left left -> throwE $ PackageError (T.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
-
-    packageAction pkg (fst exploded)
+    evaluated <- packageAction pkg (fst exploded)
 
     liftIO $ setCurrentDirectory oldDirectory
-    where
-        explodePackageName (PackageName Nothing new) = ("", new)
-        explodePackageName (PackageName (Just old) new) = (T.snoc old '%', new)
-        exploded = explodePackageName step
-        pkgName = snd exploded
+
+    pure evaluated
+  where
+    explodePackageName (PackageName Nothing new) = ("", new)
+    explodePackageName (PackageName (Just old) new) = (T.snoc old '%', new)
+    exploded = explodePackageName step
+    pkgName = snd exploded
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
