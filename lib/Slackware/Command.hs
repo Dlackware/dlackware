@@ -5,6 +5,8 @@ module Slackware.Command ( build
                          ) where
 
 import Conduit
+import Control.Monad (when)
+import Prelude hiding (break)
 import Slackware.Arch ( grepSlackBuild
                       , uname
                       )
@@ -20,13 +22,14 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
                          , try
                          )
+import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
                    )
-import Data.Foldable (foldrM)
+import Data.Foldable (foldrM, for_)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
@@ -224,13 +227,31 @@ getCompileOrders config =
     let f x = T.unpack (Config.reposRoot config) </> T.unpack x
      in fmap f (Config.repos config)
 
+-- | Build all packages specified in the configuration.
 build :: IO ()
 build = do
     (unameM', config) <- collectRunInformation
     createDirectoryIfMissing False $ T.unpack $ Config.temporaryDirectory config
 
-    let compileOrders = getCompileOrders config
-     in mapM_ (doCompileOrder unameM' config buildPackage) compileOrders
+    runContT (forRepository config (buildCompileOrder unameM' config)) return
+  where
+    buildCompileOrder unameM' config break compileOrder = do
+        let orderPath = T.unpack (Config.reposRoot config) </> T.unpack compileOrder
+        builtAny <- liftIO $ doCompileOrder unameM' config buildPackage orderPath
+
+        let condition = compileOrder == "systemd/compile-order" && builtAny
+        when condition $ reboot break
+
+    forRepository Config.Config{Config.repos = repos} buildCompileOrder'
+        = callCC $ for_ repos . buildCompileOrder'
+
+reboot :: (() -> ContT () IO ()) -> ContT () IO ()
+reboot break = do
+    _ <- liftIO $ T.IO.putStrLn "The Computer must be restarted before\
+        \building can continue. Would you like to reboot now? (Yes/No)"
+    answer <- liftIO T.IO.getLine
+    when (answer == "Yes") $ liftIO $ callProcess "/sbin/reboot" mempty
+    break ()
 
 downloadSource :: IO ()
 downloadSource = do
