@@ -247,7 +247,7 @@ build = do
 
 reboot :: (() -> ContT () IO ()) -> ContT () IO ()
 reboot break = do
-    _ <- liftIO $ T.IO.putStrLn "The Computer must be restarted before\
+    _ <- liftIO $ T.IO.putStrLn "The Computer must be restarted before \
         \building can continue. Would you like to reboot now? (Yes/No)"
     answer <- liftIO T.IO.getLine
     when (answer == "Yes") $ liftIO $ callProcess "/sbin/reboot" mempty

@@ -4,3 +4,6 @@ temporaryDirectory: /tmp/dlackware
 repos:
 - pam/compile-order
 - systemd/compile-order
+- sysdeps/compile-order
+- core/compile-order
+- apps/compile-order
