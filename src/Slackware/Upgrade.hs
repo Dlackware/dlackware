@@ -84,7 +84,7 @@ upgrade pkgnam toVersion = do
     let intermediate = T.replace c8version (T.pack toVersion) <$> downloads pkg
     let newDownloads = T.replace (major c8version) (major $ T.pack toVersion) <$> intermediate
 
-    newChecksums' <- mapM downloader newDownloads
+    newChecksums' <- traverse downloader newDownloads
     let newChecksums = head . words <$> newChecksums'
 
     writeFile infoFile

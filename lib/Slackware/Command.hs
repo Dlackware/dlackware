@@ -29,9 +29,10 @@ import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
                    )
-import Data.Foldable (foldrM, for_)
+import Data.Foldable (foldrM, for_, traverse_)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T.IO
 import Network.HTTP.Req ( HttpException
@@ -75,7 +76,7 @@ md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
 installpkg
-    :: T.Text
+    :: Text
     -> String
     -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
 installpkg old fullPkgName = do
@@ -158,15 +159,15 @@ downloadPackageSource pkg _ = do
 
   where
     tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
-    tryDownload = try . mapM (runReq defaultHttpConfig)
-    tryReadChecksum :: T.Text -> IO (Either IOException (Digest MD5))
+    tryDownload = try . traverse (runReq defaultHttpConfig)
+    tryReadChecksum :: Text -> IO (Either IOException (Digest MD5))
     tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 
-doCompileOrder :: String -> Config.Config -> PackageAction -> String -> IO Bool
-doCompileOrder unameM' config action compileOrder = do
-    content <- T.IO.readFile compileOrder
+doCompileOrder :: PackageEnvironment -> PackageAction -> String -> IO Bool
+doCompileOrder (PackageEnvironment unameM' config) action compileOrder = do
+    content <- T.IO.readFile compileOrderPath
 
-    packageList <- case parseCompileOrder compileOrder content of
+    packageList <- case parseCompileOrder compileOrderPath content of
       Right right -> return right
       Left left -> console Fatal (T.pack $ errorBundlePretty left) >> exitFailure
 
@@ -175,11 +176,11 @@ doCompileOrder unameM' config action compileOrder = do
       Left message -> console Fatal (showPackageError message) >> exitFailure
       Right evaluated -> pure $ or evaluated
 
-    where
-      packageAction
-            = flip runReaderT (PackageEnvironment unameM' config)
-            . runExceptT
-            . traverse (doPackage action (takeDirectory compileOrder))
+  where
+    compileOrderPath = T.unpack (Config.reposRoot config) </> compileOrder
+    packageAction = flip runReaderT (PackageEnvironment unameM' config)
+        . runExceptT
+        . traverse (doPackage action (takeDirectory compileOrderPath))
 
 doPackage :: PackageAction
           -> FilePath
@@ -216,34 +217,28 @@ readConfiguration = do
     createDirectoryIfMissing True $ T.unpack $ Config.loggingDirectory config
     return config
 
-collectRunInformation :: IO (String, Config.Config)
+collectRunInformation :: IO PackageEnvironment
 collectRunInformation = do
     config <- readConfiguration
     unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    return (unameM', config)
-
-getCompileOrders :: Config.Config -> [FilePath]
-getCompileOrders config =
-    let f x = T.unpack (Config.reposRoot config) </> T.unpack x
-     in fmap f (Config.repos config)
+    return $ PackageEnvironment unameM' config
 
 -- | Build all packages specified in the configuration.
 build :: IO ()
 build = do
-    (unameM', config) <- collectRunInformation
-    createDirectoryIfMissing False $ T.unpack $ Config.temporaryDirectory config
+    environment <- collectRunInformation
+    createDirectoryIfMissing False $ temporaryDirectory environment
 
-    runContT (forRepository config (buildCompileOrder unameM' config)) return
+    runContT (forRepository environment (buildCompileOrder environment)) return
   where
-    buildCompileOrder unameM' config break compileOrder = do
-        let orderPath = T.unpack (Config.reposRoot config) </> T.unpack compileOrder
-        builtAny <- liftIO $ doCompileOrder unameM' config buildPackage orderPath
+    buildCompileOrder environment break compileOrder = do
+        builtAny <- liftIO $ doCompileOrder environment buildPackage compileOrder
 
         let condition = compileOrder == "systemd/compile-order" && builtAny
         when condition $ reboot break
 
-    forRepository Config.Config{Config.repos = repos} buildCompileOrder'
-        = callCC $ for_ repos . buildCompileOrder'
+    forRepository environment buildCompileOrder' =
+        callCC $ for_ (repositories environment) . buildCompileOrder'
 
 reboot :: (() -> ContT () IO ()) -> ContT () IO ()
 reboot break = do
@@ -253,16 +248,19 @@ reboot break = do
     when (answer == "Yes") $ liftIO $ callProcess "/sbin/reboot" mempty
     break ()
 
+-- | Only download the sources.
 downloadSource :: IO ()
 downloadSource = do
-    (unameM', config) <- collectRunInformation
+    environment <- collectRunInformation
 
-    let compileOrders = getCompileOrders config
-     in mapM_ (doCompileOrder unameM' config downloadPackageSource) compileOrders
+    let downloadPackageSource' =
+            doCompileOrder environment downloadPackageSource
+     in traverse_ downloadPackageSource' $ repositories environment
 
+-- | Install pre-built packages.
 install :: IO ()
 install = do
-    (unameM', config) <- collectRunInformation
+    environment <- collectRunInformation
 
-    let compileOrders = getCompileOrders config
-     in mapM_ (doCompileOrder unameM' config installPackage) compileOrders
+    let installPackage' = doCompileOrder environment installPackage
+     in traverse_ installPackage' $ repositories environment
