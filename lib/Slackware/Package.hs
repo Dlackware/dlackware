@@ -1,7 +1,8 @@
 module Slackware.Package ( PackageAction
-                         , PackageEnvironment(..)
+                         , Environment(..)
                          , loggingDirectory
                          , repositories
+                         , root
                          , temporaryDirectory
                          , unameM
                          ) where
@@ -14,23 +15,26 @@ import qualified Slackware.Config as Config
 import Slackware.Info
 import Slackware.Error
 
-data PackageEnvironment = PackageEnvironment String Config.Config
+data Environment = Environment String Config.Config
 
 type PackageAction
     = PackageInfo
     -> Text
-    -> ExceptT PackageError (ReaderT PackageEnvironment IO) Bool
+    -> ExceptT PackageError (ReaderT Environment IO) Bool
 
-unameM :: PackageEnvironment -> String
-unameM (PackageEnvironment unameM' _) = unameM'
+unameM :: Environment -> String
+unameM (Environment unameM' _) = unameM'
 
-loggingDirectory :: PackageEnvironment -> String
-loggingDirectory (PackageEnvironment _ config) =
+loggingDirectory :: Environment -> String
+loggingDirectory (Environment _ config) =
     Text.unpack $ Config.loggingDirectory config
 
-temporaryDirectory :: PackageEnvironment -> String
-temporaryDirectory (PackageEnvironment _ config) =
+temporaryDirectory :: Environment -> String
+temporaryDirectory (Environment _ config) =
     Text.unpack $ Config.temporaryDirectory config
 
-repositories :: PackageEnvironment -> [String]
-repositories (PackageEnvironment _ config) = Text.unpack <$> Config.repos config
+repositories :: Environment -> [String]
+repositories (Environment _ config) = Text.unpack <$> Config.repos config
+
+root :: Environment -> String
+root (Environment _ config) = Text.unpack $ Config.reposRoot config

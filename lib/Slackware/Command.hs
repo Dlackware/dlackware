@@ -24,7 +24,7 @@ import Control.Exception ( IOException
                          )
 import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ReaderT, ask, asks, runReaderT)
 import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
@@ -78,7 +78,7 @@ md5sum = hashlazy
 installpkg
     :: Text
     -> String
-    -> ExceptT PackageError (ReaderT PackageEnvironment IO) ()
+    -> ExceptT PackageError (ReaderT Environment IO) ()
 installpkg old fullPkgName = do
     processReturn <- liftIO $ tryIOError upgradepkg
     either throw pure processReturn
@@ -163,29 +163,35 @@ downloadPackageSource pkg _ = do
     tryReadChecksum :: Text -> IO (Either IOException (Digest MD5))
     tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 
-doCompileOrder :: PackageEnvironment -> PackageAction -> String -> IO Bool
-doCompileOrder (PackageEnvironment unameM' config) action compileOrder = do
-    content <- T.IO.readFile compileOrderPath
+doCompileOrder :: PackageAction -> String -> ReaderT Environment IO Bool
+doCompileOrder action compileOrder = do
+    environment <- ask
+    compileOrderPath' <- asks compileOrderPath
+    content <- liftIO $ T.IO.readFile compileOrderPath'
 
-    packageList <- case parseCompileOrder compileOrderPath content of
+    packageList <- case parseCompileOrder compileOrderPath' content of
       Right right -> return right
-      Left left -> console Fatal (T.pack $ errorBundlePretty left) >> exitFailure
+      Left left -> liftIO $ do
+          console Fatal $ T.pack $ errorBundlePretty left
+          exitFailure
 
-    maybeError <- packageAction packageList
+    maybeError <- liftIO $ packageAction environment packageList
     case maybeError of
-      Left message -> console Fatal (showPackageError message) >> exitFailure
+      Left message -> liftIO $ do
+          console Fatal $ showPackageError message
+          exitFailure
       Right evaluated -> pure $ or evaluated
 
   where
-    compileOrderPath = T.unpack (Config.reposRoot config) </> compileOrder
-    packageAction = flip runReaderT (PackageEnvironment unameM' config)
+    compileOrderPath = (</> compileOrder) . root
+    packageAction environment = flip runReaderT environment
         . runExceptT
-        . traverse (doPackage action (takeDirectory compileOrderPath))
+        . traverse (doPackage action (takeDirectory $ compileOrderPath environment))
 
 doPackage :: PackageAction
           -> FilePath
           -> Step
-          -> ExceptT PackageError (ReaderT PackageEnvironment IO) Bool
+          -> ExceptT PackageError (ReaderT Environment IO) Bool
 doPackage packageAction repo step = do
     oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> T.unpack pkgName
@@ -217,11 +223,11 @@ readConfiguration = do
     createDirectoryIfMissing True $ T.unpack $ Config.loggingDirectory config
     return config
 
-collectRunInformation :: IO PackageEnvironment
+collectRunInformation :: IO Environment
 collectRunInformation = do
     config <- readConfiguration
     unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    return $ PackageEnvironment unameM' config
+    return $ Environment unameM' config
 
 -- | Build all packages specified in the configuration.
 build :: IO ()
@@ -232,7 +238,8 @@ build = do
     runContT (forRepository environment (buildCompileOrder environment)) return
   where
     buildCompileOrder environment break compileOrder = do
-        builtAny <- liftIO $ doCompileOrder environment buildPackage compileOrder
+        builtAny <- liftIO
+            $ runReaderT (doCompileOrder buildPackage compileOrder) environment
 
         let condition = compileOrder == "systemd/compile-order" && builtAny
         when condition $ reboot break
@@ -254,7 +261,7 @@ downloadSource = do
     environment <- collectRunInformation
 
     let downloadPackageSource' =
-            doCompileOrder environment downloadPackageSource
+            flip runReaderT environment . doCompileOrder downloadPackageSource
      in traverse_ downloadPackageSource' $ repositories environment
 
 -- | Install pre-built packages.
@@ -262,5 +269,6 @@ install :: IO ()
 install = do
     environment <- collectRunInformation
 
-    let installPackage' = doCompileOrder environment installPackage
+    let installPackage' =
+            flip runReaderT environment . doCompileOrder installPackage
      in traverse_ installPackage' $ repositories environment
