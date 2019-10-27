@@ -1,11 +1,13 @@
-module Slackware.Package ( PackageAction
-                         , Environment(..)
-                         , loggingDirectory
-                         , repositories
-                         , root
-                         , temporaryDirectory
-                         , unameM
-                         ) where
+module Slackware.Package
+    ( ActionT
+    , Command
+    , Environment(..)
+    , loggingDirectory
+    , repositories
+    , root
+    , temporaryDirectory
+    , unameM
+    ) where
 
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
@@ -17,10 +19,12 @@ import Slackware.Error
 
 data Environment = Environment String Config.Config
 
-type PackageAction
+type ActionT a = ExceptT PackageError (ReaderT Environment IO) a
+
+type Command
     = PackageInfo
     -> Text
-    -> ExceptT PackageError (ReaderT Environment IO) Bool
+    -> ActionT Bool
 
 unameM :: Environment -> String
 unameM (Environment unameM' _) = unameM'

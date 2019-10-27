@@ -24,7 +24,7 @@ import Control.Exception ( IOException
                          )
 import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader (ReaderT, ask, asks, runReaderT)
+import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Crypto.Hash ( Digest
                    , MD5
                    , hashlazy
@@ -78,7 +78,7 @@ md5sum = hashlazy
 installpkg
     :: Text
     -> String
-    -> ExceptT PackageError (ReaderT Environment IO) ()
+    -> ActionT ()
 installpkg old fullPkgName = do
     processReturn <- liftIO $ tryIOError upgradepkg
     either throw pure processReturn
@@ -99,7 +99,7 @@ buildFullPackageName pkg arch buildNumber
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
 
-buildPackage :: PackageAction
+buildPackage :: Command
 buildPackage pkg old = do
     unameM' <- lift $ asks unameM
     let slackBuild = pkgname pkg <.> "SlackBuild"
@@ -128,7 +128,7 @@ buildPackage pkg old = do
             ExitSuccess -> installpkg old fullPkgName >> pure True
             _ -> throwE $ PackageError (pkgname pkg) BuildError
 
-installPackage :: PackageAction
+installPackage :: Command
 installPackage pkg old = do
     let slackBuild = pkgname pkg <.> "SlackBuild"
     unameM' <- lift $ asks unameM
@@ -137,7 +137,7 @@ installPackage pkg old = do
     installpkg old $ buildFullPackageName pkg arch buildNumber
     pure True
 
-downloadPackageSource :: PackageAction
+downloadPackageSource :: Command
 downloadPackageSource pkg _ = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
 
@@ -163,9 +163,8 @@ downloadPackageSource pkg _ = do
     tryReadChecksum :: Text -> IO (Either IOException (Digest MD5))
     tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
 
-doCompileOrder :: PackageAction -> String -> ReaderT Environment IO Bool
-doCompileOrder action compileOrder = do
-    environment <- ask
+doCompileOrder :: Command -> String -> ReaderT Environment IO Bool
+doCompileOrder command compileOrder = do
     compileOrderPath' <- asks compileOrderPath
     content <- liftIO $ T.IO.readFile compileOrderPath'
 
@@ -175,7 +174,7 @@ doCompileOrder action compileOrder = do
           console Fatal $ T.pack $ errorBundlePretty left
           exitFailure
 
-    maybeError <- liftIO $ packageAction environment packageList
+    maybeError <- action packageList
     case maybeError of
       Left message -> liftIO $ do
           console Fatal $ showPackageError message
@@ -184,15 +183,14 @@ doCompileOrder action compileOrder = do
 
   where
     compileOrderPath = (</> compileOrder) . root
-    packageAction environment = flip runReaderT environment
-        . runExceptT
-        . traverse (doPackage action (takeDirectory $ compileOrderPath environment))
+    action :: [Step] -> ReaderT Environment IO (Either PackageError [Bool])
+    action packageList = do
+        compileOrderDirectory <- asks (takeDirectory . compileOrderPath)
+        let doAction = doPackage command compileOrderDirectory
+         in runExceptT $ traverse doAction packageList
 
-doPackage :: PackageAction
-          -> FilePath
-          -> Step
-          -> ExceptT PackageError (ReaderT Environment IO) Bool
-doPackage packageAction repo step = do
+doPackage :: Command -> FilePath -> Step -> ActionT Bool
+doPackage command repo step = do
     oldDirectory <- liftIO getCurrentDirectory
     liftIO $ setCurrentDirectory $ repo </> T.unpack pkgName
 
@@ -202,7 +200,7 @@ doPackage packageAction repo step = do
     pkg <- case parse parseInfoFile infoFile content of
         Left left -> throwE $ PackageError (T.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
-    evaluated <- packageAction pkg (fst exploded)
+    evaluated <- command pkg (fst exploded)
 
     liftIO $ setCurrentDirectory oldDirectory
 
