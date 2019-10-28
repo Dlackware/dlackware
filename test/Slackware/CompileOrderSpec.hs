@@ -3,6 +3,7 @@ module Slackware.CompileOrderSpec
     ( spec
     ) where
 
+import Data.List.NonEmpty (NonEmpty(..))
 import Slackware.CompileOrder
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
@@ -13,29 +14,27 @@ spec = do
         it "splits into lines" $
             let actual = "package1\n\
                          \package2\n"
-                expected = [ PackageName Nothing "package1"
-                           , PackageName Nothing "package2"
-                           ]
+                expected = PackageName Nothing "package1"
+                    :| [PackageName Nothing "package2"]
              in parseCompileOrder "" actual `shouldParse` expected
 
-        it "parses empty file" $
-            let actual = ""
-                expected = []
-             in parseCompileOrder "" actual `shouldParse` expected
+        it "fails on an empty file" $
+            parseCompileOrder "" `shouldFailOn` ""
 
         it "skips empty lines" $
             let actual = "\npackage\n\n"
-                expected = [PackageName Nothing "package"]
+                expected = PackageName Nothing "package" :| []
              in parseCompileOrder "" actual `shouldParse` expected
 
         it "skips comments" $
-            let actual = "# Comment\n"
-                expected = []
+            let actual = "# Comment\n\
+                         \package\n"
+                expected = PackageName Nothing "package" :| []
              in parseCompileOrder "" actual `shouldParse` expected
 
         it "parses replacement package" $
             let actual = "a%b"
-                expected = [PackageName (Just "a") "b"]
+                expected = PackageName (Just "a") "b" :| []
              in parseCompileOrder "" actual `shouldParse` expected
 
         it "discards invalid replacement package" $

@@ -183,7 +183,6 @@ doCompileOrder command compileOrder = do
 
   where
     compileOrderPath = (</> compileOrder) . root
-    action :: [Step] -> ReaderT Environment IO (Either PackageError [Bool])
     action packageList = do
         compileOrderDirectory <- asks (takeDirectory . compileOrderPath)
         let doAction = doPackage command compileOrderDirectory

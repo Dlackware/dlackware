@@ -4,28 +4,23 @@ module Slackware.CompileOrder ( Step(..)
                               ) where
 
 import Control.Applicative ((<|>))
-import Control.Monad.Combinators ( many
-                                 , optional
-                                 )
-import Data.Maybe ( catMaybes
-                  , fromMaybe
-                  )
+import Control.Monad.Combinators (many, optional)
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty (NonEmpty)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Semigroup (Semigroup(..))
-import qualified Data.Text as T
+import qualified Data.Text as Text
+import Data.Text (Text)
 import Data.Void (Void)
-import Text.Megaparsec ( Parsec
-                       , parse
-                       , takeWhile1P
-                       )
-import Text.Megaparsec.Char ( newline
-                            , char
-                            )
+import Prelude hiding (lines)
+import Text.Megaparsec (Parsec, failure, parse, takeWhile1P)
+import Text.Megaparsec.Char (newline, char)
 import Text.Megaparsec.Char.Lexer (skipLineComment)
-import Text.Megaparsec.Error (ParseErrorBundle)
+import Text.Megaparsec.Error (ErrorItem(..), ParseErrorBundle)
 
-type GenParser = Parsec Void T.Text
+type GenParser = Parsec Void Text
 
-data Step = PackageName (Maybe T.Text) T.Text
+data Step = PackageName (Maybe Text) Text
     deriving Eq
 
 instance Semigroup Step where
@@ -37,8 +32,9 @@ instance Monoid Step where
     mappend = (<>)
 
 instance Show Step where
-    show (PackageName Nothing new) = T.unpack new
-    show (PackageName (Just old) new) = T.unpack old ++ ('%' : T.unpack new)
+    show (PackageName Nothing new) = Text.unpack new
+    show (PackageName (Just old) new) =
+        Text.unpack old ++ ('%' : Text.unpack new)
 
 percent :: GenParser Char
 percent = char '%'
@@ -60,5 +56,10 @@ line = emptyLine
    <|> comment
    <|> package
 
-parseCompileOrder :: String -> T.Text -> Either (ParseErrorBundle T.Text Void) [Step]
-parseCompileOrder = parse $ catMaybes <$> many line
+parseCompileOrder ::
+    String ->
+    Text ->
+    Either (ParseErrorBundle Text Void) (NonEmpty Step)
+parseCompileOrder = parse $ do
+    lines <- NonEmpty.nonEmpty . catMaybes <$> many line
+    maybe (failure (Just EndOfInput) mempty) pure lines

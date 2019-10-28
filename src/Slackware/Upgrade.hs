@@ -9,17 +9,17 @@ import qualified Data.Text.IO as Text.IO
 import Data.Either (fromRight)
 import qualified Data.Map.Strict as Map
 import Data.List (find)
-import Data.Maybe ( isJust
-                  , fromMaybe
-                  )
+import Data.Maybe (isJust, fromMaybe)
 import Slackware.Config as Config
 import Slackware.CompileOrder
 import Slackware.Info
+import Slackware.Log (Level(..), console)
 import qualified Slackware.Version as Version
 import System.Directory ( createDirectoryIfMissing
                         , getCurrentDirectory
                         , setCurrentDirectory
                         )
+import System.Exit (exitFailure)
 import System.FilePath ( (</>)
                        , (<.>)
                        , takeDirectory
@@ -50,11 +50,16 @@ getCompileOrders config =
 doCompileOrder :: String -> FilePath -> IO Bool
 doCompileOrder needle compileOrder = do
     content <- Text.IO.readFile compileOrder
-    let result = find lookup' $ packageList content
-    return $ isJust result
+    list <- packageList content
+    return $ isJust $ find lookup' list
   where
     lookup' (PackageName _ new) = new == T.pack needle
-    packageList content = fromRight [] $ parseCompileOrder compileOrder content
+    packageList content =
+        case parseCompileOrder compileOrder content of
+            Left left -> do
+                console Fatal $ T.pack $ errorBundlePretty left
+                exitFailure
+            Right right -> return right
 
 findM :: (a -> IO Bool) -> [a] -> IO (Maybe a)
 findM _ [] = return Nothing
