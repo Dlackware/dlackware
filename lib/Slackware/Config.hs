@@ -40,7 +40,7 @@ buildErrorMessage path msg = TL.toStrict . TL.Builder.toLazyText
 parseConfig :: String -> BS.ByteString -> Either T.Text Config
 parseConfig path source =
     case decode source of
-      Left err  -> Left $ buildErrorMessage path err
+      Left (_, err)  -> Left $ buildErrorMessage path err
       Right []  -> Left $ buildErrorMessage path "configuration is empty"
       Right [x] -> Right x
       _         -> Left $ buildErrorMessage path "expected only one document"

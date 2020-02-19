@@ -18,7 +18,6 @@ import Slackware.Log ( Level(..)
                      )
 import qualified Slackware.Config as Config
 import Slackware.Package
-import Control.Monad.IO.Class (liftIO)
 import Control.Exception ( IOException
                          , try
                          )
@@ -58,12 +57,7 @@ import System.Directory ( createDirectoryIfMissing
 import System.Exit ( ExitCode(..)
                    , exitFailure
                    )
-import System.FilePath ( FilePath
-                       , (</>)
-                       , (<.>)
-                       , joinPath
-                       , takeDirectory
-                       )
+import System.FilePath ((</>), (<.>), joinPath, takeDirectory)
 import System.IO.Error (tryIOError)
 import System.Process ( readProcess
                       , callProcess

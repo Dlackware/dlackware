@@ -14,9 +14,7 @@ import GHC.IO.Handle ( Handle
                      , hClose
                      )
 import System.Environment (getEnvironment)
-import System.FilePath ( FilePath
-                       , (</>)
-                       )
+import System.FilePath ((</>))
 import System.Process ( CreateProcess(..)
                       , CmdSpec(..)
                       , StdStream(..)

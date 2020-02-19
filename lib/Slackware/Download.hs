@@ -2,36 +2,33 @@
 module Slackware.Download ( get
                           , filename
                           ) where
-import Conduit ( ZipSink(..)
-               , getZipSink
-               , sinkFile
-               )
-import Crypto.Hash ( Digest
-                   , MD5
-                   )
+
+import Conduit (ZipSink(..), getZipSink, sinkFile)
+import Crypto.Hash (Digest, MD5)
 import Crypto.Hash.Conduit (sinkHash)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
-import Data.Conduit ( (.|)
-                    , runConduitRes
-                    )
-import Network.HTTP.Req ( GET (..)
-                        , MonadHttp
-                        , NoReqBody(..)
-                        , reqBr
-                        , parseUrl
-                        )
+import Data.Conduit ((.|), runConduitRes)
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Network.HTTP.Req (GET (..), MonadHttp, NoReqBody(..), reqBr, useURI)
 import Network.HTTP.Req.Conduit (responseBodySource)
+import Text.URI (URI(..), mkURI, unRText)
 
-filename :: T.Text -> T.Text
-filename url = snd $ T.breakOnEnd "/" url
+filename :: Text -> Text
+filename url = snd $ Text.breakOnEnd "/" url
 
-get :: MonadHttp m => T.Text -> Maybe (m (Digest MD5))
-get url = either get' get' <$> parseUrl (E.encodeUtf8 url)
-        where
-            destination = T.unpack $ filename url
-            get' (method, options)
-              = reqBr GET method NoReqBody options $ \r ->
-                  runConduitRes
-                      $ responseBodySource r
-                     .| getZipSink (ZipSink (sinkFile destination) *> ZipSink sinkHash)
+get :: MonadHttp m => Text -> Maybe (m (Digest MD5))
+get url = do
+    uri <- mkURI url
+    parsedUrl <- useURI uri
+    (_, path') <- uriPath uri
+
+    let destination = Text.unpack $ unRText $ NonEmpty.last path'
+        get' = getTo destination
+     in return $ either get' get' parsedUrl
+  where
+    getTo destination (method, options)
+      = reqBr GET method NoReqBody options $ \r ->
+          runConduitRes
+              $ responseBodySource r
+              .| getZipSink (ZipSink (sinkFile destination) *> ZipSink sinkHash)
