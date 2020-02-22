@@ -62,9 +62,8 @@ import System.IO.Error (tryIOError)
 import System.Process ( readProcess
                       , callProcess
                       )
-import Text.Megaparsec ( errorBundlePretty
-                       , parse
-                       )
+import Text.Megaparsec (errorBundlePretty, parse)
+import Text.URI (URI)
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
@@ -136,9 +135,9 @@ downloadPackageSource pkg _ = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
 
     downloadUrls
-        <- let f (x, y) acc = case get x of
+        <- let f (download, y) acc = case get download of
                 (Just x') -> do
-                    checksumOrE <- liftIO $ tryReadChecksum x
+                    checksumOrE <- liftIO $ tryReadChecksum download
                     return $ case checksumOrE of
                         (Right checksum) | checksum == y -> acc
                         _ -> (x', y) : acc
@@ -154,8 +153,8 @@ downloadPackageSource pkg _ = do
   where
     tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
     tryDownload = try . traverse (runReq defaultHttpConfig)
-    tryReadChecksum :: Text -> IO (Either IOException (Digest MD5))
-    tryReadChecksum = try . fmap md5sum . BSL.readFile . T.unpack . filename
+    tryReadChecksum :: URI -> IO (Either IOException (Digest MD5))
+    tryReadChecksum = try . fmap md5sum . BSL.readFile . filename
 
 doCompileOrder :: Command -> String -> ReaderT Environment IO Bool
 doCompileOrder command compileOrder = do

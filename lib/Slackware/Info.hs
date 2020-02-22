@@ -1,32 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Slackware.Info ( PackageInfo(..)
-                      , parseInfoFile
-                      ) where
+module Slackware.Info
+    ( PackageInfo(..)
+    , parseInfoFile
+    ) where
 
-import Control.Monad.Combinators ( many
-                                 , skipMany
-                                 )
+import Control.Monad.Combinators (many, sepBy, skipMany)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import Crypto.Hash ( Digest
-                   , MD5
-                   , digestFromByteString
-                   )
+import Crypto.Hash (Digest, MD5, digestFromByteString)
 import Data.Void (Void)
 import Data.Word (Word8)
 import Numeric (readHex)
-import Text.Megaparsec ( Parsec
-                       , count
-                       , eof
-                       , takeWhile1P
-                       )
-import Text.Megaparsec.Byte ( space
-                            , string
-                            , hexDigitChar
-                            )
+import Text.Megaparsec (Parsec, count, eof, takeWhile1P)
+import Text.Megaparsec.Byte (space, string, hexDigitChar)
+import Text.URI (URI(..), parserBs)
 
 type GenParser = Parsec Void C8.ByteString
 
@@ -34,7 +24,7 @@ data PackageInfo = PackageInfo
     { pkgname :: String
     , version :: T.Text
     , homepage :: T.Text
-    , downloads :: [T.Text]
+    , downloads :: [URI]
     , checksums :: [Digest MD5]
     } deriving (Eq, Show)
 
@@ -45,17 +35,13 @@ variableEntry variable = do
     _ <- string "\"\n"
     return result
 
-packageDownload :: GenParser C8.ByteString
-packageDownload = do
-    result <- takeWhile1P Nothing $ and . ((/=) <$> [0xA, 0x20, 0x22, 0x5C] <*>) . pure
-    skipMany $ string " \\"
-    space
-    return result
+variableSeparator :: GenParser ()
+variableSeparator = string " \\" *> space
 
-packageDownloads :: GenParser [C8.ByteString]
+packageDownloads :: GenParser [URI]
 packageDownloads = do
     _ <- string "DOWNLOAD=\""
-    result <- many packageDownload
+    result <- sepBy parserBs variableSeparator
     _ <- string "\"\n"
     return result
 
@@ -94,5 +80,5 @@ parseInfoFile = do
         (C8.unpack pkgname')
         (E.decodeUtf8 version')
         (E.decodeUtf8 homepage')
-        (E.decodeUtf8 <$> download)
+        download
         md5sums

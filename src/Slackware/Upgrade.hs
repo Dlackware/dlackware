@@ -29,9 +29,8 @@ import System.Process ( callCommand
                       , readCreateProcess
                       , shell
                       )
-import Text.Megaparsec ( errorBundlePretty
-                       , parse
-                       )
+import Text.Megaparsec (errorBundlePretty, parse)
+import Text.URI (render)
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
@@ -86,7 +85,7 @@ upgrade pkgnam toVersion = do
         Right pkg -> return pkg
 
     let c8version = version pkg
-    let intermediate = T.replace c8version (T.pack toVersion) <$> downloads pkg
+    let intermediate = T.replace c8version (T.pack toVersion) . render <$> downloads pkg
     let newDownloads = T.replace (major c8version) (major $ T.pack toVersion) <$> intermediate
 
     newChecksums' <- traverse downloader newDownloads
