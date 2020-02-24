@@ -3,56 +3,13 @@
 [![Build Status](https://semaphoreci.com/api/v1/belka-ew/dlackware/branches/master/badge.svg)](https://semaphoreci.com/belka-ew/dlackware)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://choosealicense.com/licenses/gpl-3.0/)
 
-Over the past few months we have created and tested gnome3 + pam + systemd on top of Slackware
-The SlackBuilds and order in which to install / build can be located on github.
+This is the build system used to build systemd and Dlackware Gnome distribution
+for Slackware Linux.
 
-There are 3 projects on this page
+This repository doesn't contain any packages, please refer to another
+repositories in the Dlackware organization if you are looking for packages.
 
-- dlackware (build and install)
-- systemd (pam + systemd + rebuilds of stock slackware packages needed for gnome3)
-- gnome-systemd (gnome3 which requires systemd to be installed)
-
-## New experimental build system
-
-### Why another build system?
-
-When I started to write the current build system, I thought: It should be
-simple since all build information is in the build scripts, the build system
-itself should just run build scripts in a particular order. My assumption was
-wrong. Even when using build scripts a build system can do a lot: check
-downloaded tarballs aren't corrupted, read configuration files, validate the
-build scripts are formatted correctly, update a bunch of packages to newer
-version and so on.
-
-The main problem of the current build system is that it is written in Bash.
-Shell (and Bash) is a great tool to automate routine tasks but it isn't a
-programming language for writing programs, though it is often used as such in
-Slackware.
-
-- Shell code is unmaintainable. Bash has basic support for functions and some
-data structures like arrays, but it is very difficult to split a bash program
-into smaller, readable, maintainable and testable parts.
-
-- Shell code isn't testable. Found a bug? Fix it and hope that nothing else
-is now broken and that the bug doesn't come back later.
-
-- Shell programs use shell scripts as configuration files. The new build system
-uses Yaml, which is a widely used, human-friendly format.
-
-- I have no idea whether it is possible to write a parser in Bash. We actually
-could partly use XML-files from JHBuild to build Gnome instead maintaining
-our own package list for each release. It is almost impossible to achieve with
-the current Bash approach.
-
-- Shell is slow (not important for this build system since the most time is
-spent building programs)
-
-So here is an attempt to create a better build system with more potential.
-Please note, it is in *experimental* stage and is being tested only on
-Slackware-current. For building Gnome don't use `master`, but the latest
-0.x release. We still have to see if we can improve our build process.
-
-### How to give it a try
+## Build and install Dlackware build system
 
 1. Install Haskell stack:
 
@@ -60,7 +17,19 @@ Slackware-current. For building Gnome don't use `master`, but the latest
 wget -qO- https://get.haskellstack.org/ | sh
 ```
 
-2. Build the build system:
+2. Clone this repository:
+
+```shell
+git clone https://github.com/Dlackware/dlackware.git
+```
+
+3. Then switch to the cloned directory:
+
+```shell
+cd dlackware
+```
+
+4. Build the build system:
 
 ```shell
 stack build
@@ -68,27 +37,47 @@ stack build
 
 It will take some time to download the dependencies on first run.
 
-3. Copy `etc/dlackware.yaml.new` to `etc/dlackware.yaml` - here you have some
-configuration options.
-
-4. Clone Gnome repository with all submodules into
-`/opt/dlackware-scripts/gnome` (the directory can be changed in
-`etc/dlackware.yaml`).
-
-5. Run:
+5. After that you can run the build system with:
 
 ```shell
-stack exec dlackware -- build
+stack exec dlackware -- …
 ```
 
-or for further options:
+Just replace `…` with the arguments that should be passed to the build system.
+You can get a list of supported commands and command line arguments with:
 
 ```shell
 stack exec dlackware -- --help
 ```
 
-### How to run tests
+## Configuration
+
+The configuration is described by a YAML file, that should be in
+`./etc/dlackware.yaml`.
+
+Sample configuratin can be found in `./etc/dlackware.yaml.new`. Just copy this
+file to `./etc/dlackware.yaml` and change as appropriate.
+
+The configuration is very simple and all options can be found in the sample
+configuration file mentioned above.
+
+- `reposRoot` specifies the root directory used to find the packages to be
+  built.
+- `loggingDirectory` is the directory there the build system writes its log
+  files, one file per built package.
+- `temporaryDirectory` is the directory used to build the actual software. This
+  directory should have enough free space to be able to build large projects,
+  like Gnome.
+- `repos` is a list of directories (relative to `reposRoot`) that contain
+  `compile-order` files, text files with a list of packages in the order these
+  should be built. Dlackware doesn't look into the directory structure to find
+  the packages; only the packages mentioned in `compile-order`s are built.
+
+## Running the tests
 
 ```shell
-stack test
+stack test --pedantic
+
+stack build hlint
+stack exec hlint -- src test
 ```
