@@ -1,15 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Info
     ( PackageInfo(..)
+    , generate
     , parseInfoFile
     ) where
 
 import Control.Monad.Combinators (sepBy)
+import Data.ByteArray as ByteArray
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Crypto.Hash (Digest, MD5, digestFromByteString)
 import Data.Void (Void)
@@ -17,7 +20,7 @@ import Data.Word (Word8)
 import Numeric (readHex)
 import Text.Megaparsec (Parsec, count, eof, takeWhile1P)
 import Text.Megaparsec.Byte (space, string, hexDigitChar)
-import Text.URI (URI(..), parserBs)
+import Text.URI (URI(..), parserBs, render)
 
 type GenParser = Parsec Void ByteString
 
@@ -63,3 +66,12 @@ parseInfoFile = PackageInfo
     <*> packageDownloads
     <*> (mapMaybe digestFromByteString <$> packageChecksums)
     <* eof 
+
+generate :: PackageInfo -> Text
+generate pkg = "PKGNAM=\"" <> Text.pack (pkgname pkg) <> "\"\n"
+    <> "VERSION=\"" <> version pkg <> "\"\n"
+    <> "HOMEPAGE=\"" <> homepage pkg <> "\"\n"
+    <> "DOWNLOAD=\"" <> Text.unwords (render <$> downloads pkg) <> "\"\n"
+    <> "MD5SUM=\"" <> Text.unwords (digestToText <$> checksums pkg) <> "\"\n"
+  where
+    digestToText = Text.decodeUtf8 . ByteString.pack . ByteArray.unpack

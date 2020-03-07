@@ -26,6 +26,7 @@ dependencies:
 - directory
 - conduit
 - megaparsec
+- memory
 - modern-uri
 - parser-combinators
 - req
