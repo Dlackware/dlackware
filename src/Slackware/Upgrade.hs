@@ -84,9 +84,9 @@ upgrade pkgnam toVersion = do
         Left _ -> error "Unable to parse the .info file"
         Right pkg -> return pkg
 
-    let c8version = version pkg
-    let intermediate = T.replace c8version (T.pack toVersion) . render <$> downloads pkg
-    let newDownloads = T.replace (major c8version) (major $ T.pack toVersion) <$> intermediate
+    let newDownloads = render
+            . updateDownloadVersion (version pkg) (T.pack toVersion)
+            <$> downloads pkg
 
     newChecksums' <- traverse downloader newDownloads
     let newChecksums = head . words <$> newChecksums'
@@ -106,7 +106,6 @@ upgrade pkgnam toVersion = do
 
       where
         lookupError = error $ unwords [pkgnam, " wasn't found in any compile order"]
-        major fromVersion = T.init $ fst $ T.breakOnEnd "." fromVersion
         downloader url = flip readCreateProcess "" $ shell $ T.unpack $ T.concat
             [ "wget -q -O $(basename ", url, ") ", url, " && md5sum $(basename ", url, ")" ]
 

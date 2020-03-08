@@ -3,6 +3,7 @@ module Slackware.Info
     ( PackageInfo(..)
     , generate
     , parseInfoFile
+    , updateDownloadVersion
     ) where
 
 import Control.Monad.Combinators (sepBy)
@@ -20,7 +21,7 @@ import Data.Word (Word8)
 import Numeric (readHex)
 import Text.Megaparsec (Parsec, count, eof, takeWhile1P)
 import Text.Megaparsec.Byte (space, string, hexDigitChar)
-import Text.URI (URI(..), parserBs, render)
+import Text.URI (URI(..), mkPathPiece, parserBs, render, unRText)
 
 type GenParser = Parsec Void ByteString
 
@@ -66,6 +67,19 @@ parseInfoFile = PackageInfo
     <*> packageDownloads
     <*> (mapMaybe digestFromByteString <$> packageChecksums)
     <* eof 
+
+updateDownloadVersion :: Text -> Text -> URI -> URI
+updateDownloadVersion fromVersion toVersion download = download
+    { uriPath = uriPath download >>= traverse (traverse updatePathPiece)
+    }
+  where
+    updatePathPiece = mkPathPiece
+        . Text.replace fromMajor toMajor
+        . Text.replace fromVersion toVersion
+        . unRText
+    major = Text.init . fst . Text.breakOnEnd "."
+    fromMajor = major fromVersion
+    toMajor = major toVersion
 
 generate :: PackageInfo -> Text
 generate pkg = "PKGNAM=\"" <> Text.pack (pkgname pkg) <> "\"\n"
