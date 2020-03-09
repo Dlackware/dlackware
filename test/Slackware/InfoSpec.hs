@@ -3,7 +3,10 @@ module Slackware.InfoSpec
     ( spec
     ) where
 
+import Crypto.Hash (digestFromByteString)
+import qualified Data.ByteString as ByteString
 import Data.ByteString.Char8 (ByteString)
+import Data.Maybe (maybeToList)
 import qualified Data.Text.Encoding as Text
 import Data.Void (Void)
 import Slackware.Info
@@ -11,6 +14,7 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 import Test.Hspec.Megaparsec (parseSatisfies, shouldSucceedOn)
 import Text.Megaparsec (parse)
 import Text.Megaparsec.Error (ParseErrorBundle)
+import Text.URI (mkURI)
 
 parseInfoFile'
     :: ByteString
@@ -49,7 +53,16 @@ spec = do
         it "accepts an empty downloads list" $
             parseInfoFile' `shouldSucceedOn` infoDownload0
 
-    describe "generate" $
+    describe "generate" $ do
         it "generates an .info file without downloads" $
             let given =  PackageInfo "pkgnam" "1.2.3" "homepage" [] []
              in generate given `shouldBe` Text.decodeUtf8 infoDownload0
+
+        it "splits multiple downloads into multiple lines" $
+            let downloads' = maybeToList
+                    $ mkURI "https://dlackware.com/download.tar.gz"
+                checksums' = maybeToList
+                    $ digestFromByteString (ByteString.pack [1.. 16])
+                given = PackageInfo
+                    "pkgnam" "1.2.3" "homepage" downloads' checksums'
+             in generate given `shouldBe` Text.decodeUtf8 infoDownload1

@@ -15,10 +15,12 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import qualified Data.Text.Lazy as Lazy.Text
+import qualified Data.Text.Lazy.Builder as Text.Builder
 import Crypto.Hash (Digest, MD5, digestFromByteString)
 import Data.Void (Void)
 import Data.Word (Word8)
-import Numeric (readHex)
+import Numeric (readHex, showHex)
 import Text.Megaparsec (Parsec, count, eof, takeWhile1P)
 import Text.Megaparsec.Byte (space, string, hexDigitChar)
 import Text.URI (URI(..), mkPathPiece, parserBs, render, unRText)
@@ -82,10 +84,15 @@ updateDownloadVersion fromVersion toVersion download = download
     toMajor = major toVersion
 
 generate :: PackageInfo -> Text
-generate pkg = "PKGNAM=\"" <> Text.pack (pkgname pkg) <> "\"\n"
-    <> "VERSION=\"" <> version pkg <> "\"\n"
-    <> "HOMEPAGE=\"" <> homepage pkg <> "\"\n"
-    <> "DOWNLOAD=\"" <> Text.unwords (render <$> downloads pkg) <> "\"\n"
-    <> "MD5SUM=\"" <> Text.unwords (digestToText <$> checksums pkg) <> "\"\n"
+generate pkg = Lazy.Text.toStrict $ Text.Builder.toLazyText builder
   where
-    digestToText = Text.decodeUtf8 . ByteString.pack . ByteArray.unpack
+    digestToText digest = Lazy.Text.pack
+        $ foldr hexAppender "" $ ByteArray.unpack digest
+    hexAppender x acc
+      | x > 15 = showHex x acc
+      | otherwise = '0' : showHex x acc
+    builder = "PKGNAM=\"" <> Text.Builder.fromString (pkgname pkg) <> "\"\n"
+        <> "VERSION=\"" <> Text.Builder.fromText (version pkg) <> "\"\n"
+        <> "HOMEPAGE=\"" <> Text.Builder.fromText (homepage pkg) <> "\"\n"
+        <> "DOWNLOAD=\"" <> Text.Builder.fromText (Text.unwords $ render <$> downloads pkg) <> "\"\n"
+        <> "MD5SUM=\"" <> Text.Builder.fromLazyText (Lazy.Text.unwords $ digestToText <$> checksums pkg) <> "\"\n"
