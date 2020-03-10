@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExplicitForAll #-}
 module Slackware.InfoSpec
     ( spec
     ) where
@@ -35,6 +36,9 @@ infoDownload1 = "PKGNAM=\"pkgnam\"\n\
     \DOWNLOAD=\"https://dlackware.com/download.tar.gz\"\n\
     \MD5SUM=\"0102030405060708090a0b0c0d0e0f10\"\n"
 
+maybeToDoubleList :: forall a. Maybe a -> [a]
+maybeToDoubleList xs = [y | x <- maybeToList xs, y <- [x, x]]
+
 spec :: Spec
 spec = do
     describe "parseInfoFile" $ do
@@ -59,6 +63,22 @@ spec = do
              in generate given `shouldBe` Text.decodeUtf8 infoDownload0
 
         it "splits multiple downloads into multiple lines" $
+            let downloads' = maybeToDoubleList
+                    $ mkURI "https://dlackware.com/download.tar.gz"
+                checksums' = maybeToDoubleList
+                    $ digestFromByteString (ByteString.pack [1.. 16])
+                given = PackageInfo
+                    "pkgnam" "1.2.3" "homepage" downloads' checksums'
+                expected = "PKGNAM=\"pkgnam\"\n\
+                    \VERSION=\"1.2.3\"\n\
+                    \HOMEPAGE=\"homepage\"\n\
+                    \DOWNLOAD=\"https://dlackware.com/download.tar.gz \\\n\
+                    \          https://dlackware.com/download.tar.gz\"\n\
+                    \MD5SUM=\"0102030405060708090a0b0c0d0e0f10 \\\n\
+                    \        0102030405060708090a0b0c0d0e0f10\"\n"
+             in generate given `shouldBe` expected
+
+        it "prints the checksum as a sequence of hexadecimal numbers" $
             let downloads' = maybeToList
                     $ mkURI "https://dlackware.com/download.tar.gz"
                 checksums' = maybeToList

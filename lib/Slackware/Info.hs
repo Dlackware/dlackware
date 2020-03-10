@@ -17,6 +17,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Lazy as Lazy.Text
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder as Text (Builder)
 import Crypto.Hash (Digest, MD5, digestFromByteString)
 import Data.Void (Void)
 import Data.Word (Word8)
@@ -86,13 +87,21 @@ updateDownloadVersion fromVersion toVersion download = download
 generate :: PackageInfo -> Text
 generate pkg = Lazy.Text.toStrict $ Text.Builder.toLazyText builder
   where
-    digestToText digest = Lazy.Text.pack
-        $ foldr hexAppender "" $ ByteArray.unpack digest
+    digestToText = Text.pack . foldr hexAppender "" . ByteArray.unpack
     hexAppender x acc
       | x > 15 = showHex x acc
       | otherwise = '0' : showHex x acc
     builder = "PKGNAM=\"" <> Text.Builder.fromString (pkgname pkg) <> "\"\n"
         <> "VERSION=\"" <> Text.Builder.fromText (version pkg) <> "\"\n"
         <> "HOMEPAGE=\"" <> Text.Builder.fromText (homepage pkg) <> "\"\n"
-        <> "DOWNLOAD=\"" <> Text.Builder.fromText (Text.unwords $ render <$> downloads pkg) <> "\"\n"
-        <> "MD5SUM=\"" <> Text.Builder.fromLazyText (Lazy.Text.unwords $ digestToText <$> checksums pkg) <> "\"\n"
+        <> generateMultiEntry "DOWNLOAD" (render <$> downloads pkg)
+        <> generateMultiEntry "MD5SUM" (digestToText <$> checksums pkg)
+
+generateMultiEntry :: Text -> [Text] -> Text.Builder
+generateMultiEntry name entries = Text.Builder.fromText name
+    <> "=\""
+    <> Text.Builder.fromText (Text.intercalate separator entries)
+    <> "\"\n"
+  where
+    padLength = Text.length name + 2
+    separator = " \\\n" <> Text.replicate padLength " "
