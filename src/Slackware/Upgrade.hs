@@ -9,9 +9,11 @@ import qualified Data.Text.IO as Text.IO
 import Data.Either (fromRight)
 import qualified Data.Map.Strict as Map
 import Data.List (find)
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust, fromJust, fromMaybe)
+import Network.HTTP.Req (defaultHttpConfig, runReq)
 import Slackware.Config as Config
 import Slackware.CompileOrder
+import Slackware.Download
 import Slackware.Info
 import Slackware.Log (Level(..), console)
 import qualified Slackware.Version as Version
@@ -25,12 +27,8 @@ import System.FilePath ( (</>)
                        , takeDirectory
                        , takeFileName
                        )
-import System.Process ( callCommand
-                      , readCreateProcess
-                      , shell
-                      )
+import System.Process (callCommand)
 import Text.Megaparsec (errorBundlePretty, parse)
-import Text.URI (render)
 
 readConfiguration :: IO Config.Config
 readConfiguration = do
@@ -84,19 +82,13 @@ upgrade pkgnam toVersion = do
         Left _ -> error "Unable to parse the .info file"
         Right pkg -> return pkg
 
-    let newDownloads = render
-            . updateDownloadVersion (version pkg) (T.pack toVersion)
+    let newDownloads = updateDownloadVersion (version pkg) (T.pack toVersion)
             <$> downloads pkg
+    newChecksums <- traverse (runReq defaultHttpConfig)
+        $ fromJust . get <$> newDownloads
 
-    newChecksums' <- traverse downloader newDownloads
-    let newChecksums = head . words <$> newChecksums'
-
-    writeFile infoFile
-          $ "PKGNAM=\"" ++ pkgnam ++ "\"\n"
-         ++ "VERSION=\"" ++ toVersion ++ "\"\n"
-         ++ "HOMEPAGE=\"" ++ (T.unpack . homepage) pkg ++ "\"\n"
-         ++ "DOWNLOAD=\"" ++ T.unpack (T.unwords newDownloads) ++ "\"\n"
-         ++ "MD5SUM=\"" ++ unwords newChecksums ++ "\"\n"
+    let newPackage = pkg { downloads = newDownloads, checksums = newChecksums }
+    Text.IO.writeFile infoFile $ generate newPackage
 
     let group = takeFileName . takeDirectory $ matchingCompileOrder
     _ <- callCommand $ "git add . && git commit -m \""
@@ -106,8 +98,6 @@ upgrade pkgnam toVersion = do
 
       where
         lookupError = error $ unwords [pkgnam, " wasn't found in any compile order"]
-        downloader url = flip readCreateProcess "" $ shell $ T.unpack $ T.concat
-            [ "wget -q -O $(basename ", url, ") ", url, " && md5sum $(basename ", url, ")" ]
 
 upgradeAll :: IO ()
 upgradeAll = do
