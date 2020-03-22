@@ -34,16 +34,11 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T.IO
-import Network.HTTP.Req ( HttpException
-                        , Req
-                        , defaultHttpConfig
-                        , runReq
-                        )
 import Slackware.Info ( parseInfoFile
                       , PackageInfo(..)
                       )
 import Slackware.Download ( filename
-                          , get
+                          , download
                           )
 import Slackware.Error
 import Slackware.Process ( outErrProcess
@@ -134,25 +129,23 @@ downloadPackageSource :: Command
 downloadPackageSource pkg _ = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
 
-    downloadUrls
-        <- let f (download, y) acc = case get download of
-                (Just x') -> do
-                    checksumOrE <- liftIO $ tryReadChecksum download
-                    return $ case checksumOrE of
-                        (Right checksum) | checksum == y -> acc
-                        _ -> (x', y) : acc
-                Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
-            in foldrM f [] $ zip (downloads pkg) (checksums pkg)
-
-    caught <- liftIO $ tryDownload $ fst <$> downloadUrls
+    urls <- foldrM tryExistingDownload [] $ zip (downloads pkg) (checksums pkg)
+    downloaded <- traverse (tryDownload . fst) urls
+    caught <- liftIO $ try $ sequenceA downloaded
     sums <- either (throwE . PackageError (pkgname pkg) . DownloadError) return caught
-    if sums /= (snd <$> downloadUrls)
+    if sums /= (snd <$> urls)
        then throwE $ PackageError (pkgname pkg) ChecksumMismatch
        else pure True
 
   where
-    tryDownload :: [Req (Digest MD5)] -> IO (Either HttpException [Digest MD5])
-    tryDownload = try . traverse (runReq defaultHttpConfig)
+    tryDownload url = case download url of
+        (Just request) -> return request
+        Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
+    tryExistingDownload (url, checksum) acc = do
+        checksumOrE <- liftIO $ tryReadChecksum url
+        case checksumOrE of
+            (Right checksum') | checksum' == checksum -> return acc
+            _ -> return $ (url, checksum) : acc
     tryReadChecksum :: URI -> IO (Either IOException (Digest MD5))
     tryReadChecksum = try . fmap md5sum . BSL.readFile . filename
 

@@ -10,7 +10,6 @@ import Data.Either (fromRight)
 import qualified Data.Map.Strict as Map
 import Data.List (find)
 import Data.Maybe (isJust, fromJust, fromMaybe)
-import Network.HTTP.Req (defaultHttpConfig, runReq)
 import Slackware.Config as Config
 import Slackware.CompileOrder
 import Slackware.Download
@@ -84,8 +83,7 @@ upgrade pkgnam toVersion = do
 
     let newDownloads = updateDownloadVersion (version pkg) (T.pack toVersion)
             <$> downloads pkg
-    newChecksums <- traverse (runReq defaultHttpConfig)
-        $ fromJust . get <$> newDownloads
+    newChecksums <- traverse (fromJust . download) newDownloads
 
     let newPackage = pkg { downloads = newDownloads, checksums = newChecksums }
     Text.IO.writeFile infoFile $ generate newPackage
