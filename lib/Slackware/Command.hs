@@ -2,6 +2,7 @@
 module Slackware.Command ( build
                          , downloadSource
                          , install
+                         , readConfiguration
                          ) where
 
 import Conduit
@@ -37,9 +38,7 @@ import qualified Data.Text.IO as T.IO
 import Slackware.Info ( parseInfoFile
                       , PackageInfo(..)
                       )
-import Slackware.Download ( filename
-                          , download
-                          )
+import Slackware.Download
 import Slackware.Error
 import Slackware.Process ( outErrProcess
                          , runSlackBuild
@@ -130,17 +129,20 @@ downloadPackageSource pkg _ = do
     liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
 
     urls <- foldrM tryExistingDownload [] $ zip (downloads pkg) (checksums pkg)
-    downloaded <- traverse (tryDownload . fst) urls
-    caught <- liftIO $ try $ sequenceA downloaded
-    sums <- either (throwE . PackageError (pkgname pkg) . DownloadError) return caught
+    downloaded <- case downloadAll (fst <$> urls) of
+        (Just request) -> return request
+        Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
+
+    caught <- liftIO $ try downloaded
+    sums <- case caught of
+        (Left e) -> throwE $ PackageError (pkgname pkg) $ DownloadError e
+        (Right result) -> return result
+
     if sums /= (snd <$> urls)
        then throwE $ PackageError (pkgname pkg) ChecksumMismatch
        else pure True
 
   where
-    tryDownload url = case download url of
-        (Just request) -> return request
-        Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
     tryExistingDownload (url, checksum) acc = do
         checksumOrE <- liftIO $ tryReadChecksum url
         case checksumOrE of

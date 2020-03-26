@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Download
     ( download
+    , downloadAll
     , filename
     ) where
 
@@ -40,3 +41,6 @@ get url = do
 
 download :: URI -> Maybe (IO (Digest MD5))
 download url = runReq defaultHttpConfig <$> get url
+
+downloadAll :: [URI] -> Maybe (IO [Digest MD5])
+downloadAll urls = sequence <$> traverse download urls

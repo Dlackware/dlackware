@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Applicative (Alternative(..))
+import Data.Text (Text)
 import Options.Applicative ( Parser
                            , ParserInfo
                            , execParser
@@ -20,7 +21,7 @@ import Slackware.Upgrade
 data Program = Build
              | DownloadSource
              | Install
-             | Upgrade String String
+             | Upgrade String Text
              | UpgradeAll
 
 program :: Parser Program
