@@ -4,7 +4,7 @@ module Slackware.InfoSpec
     ( spec
     ) where
 
-import Crypto.Hash (digestFromByteString)
+import Crypto.Hash (Digest, MD5, digestFromByteString)
 import qualified Data.ByteString as ByteString
 import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (maybeToList)
@@ -38,6 +38,9 @@ infoDownload1 = "PKGNAM=\"pkgnam\"\n\
 
 maybeToDoubleList :: forall a. Maybe a -> [a]
 maybeToDoubleList xs = [y | x <- maybeToList xs, y <- [x, x]]
+
+checksumSample :: [Digest MD5]
+checksumSample = maybeToList $ digestFromByteString (ByteString.pack [1 .. 16])
 
 spec :: Spec
 spec = do
@@ -81,8 +84,36 @@ spec = do
         it "prints the checksum as a sequence of hexadecimal numbers" $
             let downloads' = maybeToList
                     $ mkURI "https://dlackware.com/download.tar.gz"
-                checksums' = maybeToList
-                    $ digestFromByteString (ByteString.pack [1.. 16])
                 given = PackageInfo
-                    "pkgnam" "1.2.3" "homepage" downloads' checksums'
+                    "pkgnam" "1.2.3" "homepage" downloads' checksumSample
              in generate given `shouldBe` Text.decodeUtf8 infoDownload1
+
+    describe "updateDownloadVersion" $ do
+        it "replaces the version" $
+            let downloads' = maybeToList
+                    $ mkURI "https://dlackware.com/download-1.2.3.tar.gz"
+                testPackage = PackageInfo
+                    "pkgnam" "1.2.3" "homepage" downloads' checksumSample
+                expected = maybeToList
+                    $ mkURI "https://dlackware.com/download-2.3.4.tar.gz"
+             in updateDownloadVersion testPackage "2.3.4" `shouldBe` expected
+
+        it "updates the major version" $
+            let downloads' = maybeToList
+                    $ mkURI "https://dlackware.com/1.2/download.tar.gz"
+                testPackage = PackageInfo
+                    "pkgnam" "1.2.3" "homepage" downloads' checksumSample
+                expected = maybeToList
+                    $ mkURI "https://dlackware.com/2.3/download.tar.gz"
+             in updateDownloadVersion testPackage "2.3.4" `shouldBe` expected
+
+    describe "update" $
+        it "replaces the version" $
+            let downloads' = maybeToList
+                    $ mkURI "https://dlackware.com/1.2/download.tar.gz"
+                testPackage = PackageInfo
+                    "pkgnam" "1.2.3" "homepage" downloads' checksumSample
+                expected = PackageInfo
+                    "pkgnam" "2.3.4" "homepage" downloads' checksumSample
+                given = update testPackage "2.3.4" downloads' checksumSample
+             in given `shouldBe` expected

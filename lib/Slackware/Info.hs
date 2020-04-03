@@ -3,6 +3,7 @@ module Slackware.Info
     ( PackageInfo(..)
     , generate
     , parseInfoFile
+    , update
     , updateDownloadVersion
     ) where
 
@@ -71,18 +72,26 @@ parseInfoFile = PackageInfo
     <*> (mapMaybe digestFromByteString <$> packageChecksums)
     <* eof 
 
-updateDownloadVersion :: Text -> Text -> URI -> URI
-updateDownloadVersion fromVersion toVersion download = download
-    { uriPath = uriPath download >>= traverse (traverse updatePathPiece)
-    }
+updateDownloadVersion :: PackageInfo -> Text -> [URI]
+updateDownloadVersion package toVersion = replacePath <$> downloads package
   where
+    replacePath download = download
+        { uriPath = uriPath download >>= traverse (traverse updatePathPiece)
+        }
     updatePathPiece = mkPathPiece
         . Text.replace fromMajor toMajor
-        . Text.replace fromVersion toVersion
+        . Text.replace (version package) toVersion
         . unRText
     major = Text.init . fst . Text.breakOnEnd "."
-    fromMajor = major fromVersion
+    fromMajor = major $ version package
     toMajor = major toVersion
+
+update :: PackageInfo -> Text -> [URI] -> [Digest MD5] -> PackageInfo
+update old toVersion downloads' checksums' = old
+    { version = toVersion
+    , downloads = downloads'
+    , checksums = checksums'
+    }
 
 generate :: PackageInfo -> Text
 generate pkg = Lazy.Text.toStrict $ Text.Builder.toLazyText builder

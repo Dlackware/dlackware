@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Upgrade where
 
-import Control.Monad (void)
+import Control.Monad (unless, void)
 import qualified Data.ByteString.Char8 as C8
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -66,19 +66,17 @@ upgrade pkgnam toVersion = do
         Left _ -> error "Unable to parse the .info file"
         Right pkg -> return pkg
 
-    let newDownloads = updateDownloadVersion (version pkg) toVersion
-            <$> downloads pkg
+    let newDownloads = updateDownloadVersion pkg toVersion
     newChecksums <- fromJust $ downloadAll newDownloads
 
-    Text.IO.writeFile infoFile $ generate $ pkg
-        { downloads = newDownloads
-        , checksums = newChecksums
-        }
-
-    let group = takeFileName . takeDirectory $ matchingCompileOrder
-    _ <- callCommand $ "git add . && git commit -m \""
-        ++ group ++ "/" ++ pkgnam
-        ++ ": Updated for version " ++ T.unpack toVersion ++ "\""
+    let newPackage = update pkg toVersion newDownloads newChecksums
+    let gitCommand = "git add . && git commit -m \""
+            ++ (takeFileName . takeDirectory $ matchingCompileOrder)
+            ++ "/" ++ pkgnam
+            ++ ": Updated for version " ++ T.unpack toVersion ++ "\""
+    unless (pkg == newPackage)
+        $ Text.IO.writeFile infoFile (generate newPackage)
+        >> callCommand gitCommand
     setCurrentDirectory cwd
 
   where
