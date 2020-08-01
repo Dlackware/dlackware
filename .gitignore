@@ -1,5 +1,5 @@
-/etc/dlackware.yaml
-/etc/versions
+/etc/*
+!/etc/dlackware.yaml.new
 
 /dist/
 

@@ -34,3 +34,9 @@ spec
             let content = "## CORE\n\
                           \core:gdm:3.33.92:\n\n"
              in parse versions "" `shouldSucceedOn` content
+        it "doesn't expect a trailing newline" $
+            let content = "core:gdm:3.33.92:\n"
+             in parse versions "" `shouldSucceedOn` content
+        it "forces parsing till the end of file" $
+            let content = "core:gdm:3.33.92:\ninvalid-entry\n"
+             in parse versions "" `shouldFailOn` content
