@@ -1,0 +1,57 @@
+name: Haskell CI
+
+on:
+  push: ~
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-haskell@v1
+      with:
+        enable-stack: true
+        stack-no-global: true
+        stack-version: latest
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.stack
+          stack.yaml.lock
+        key: ${{ runner.os }}-test-${{ hashFiles('**/stack.yaml') }}
+        restore-keys: ${{ runner.os }}-test-
+
+    - name: Install dependencies
+      run: stack --no-terminal test --only-snapshot
+    - name: Run tests
+      run: stack --no-terminal test --pedantic
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-haskell@v1
+      with:
+        enable-stack: true
+        stack-no-global: true
+        stack-version: latest
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.stack
+          stack.yaml.lock
+        key: ${{ runner.os }}-lint-${{ hashFiles('**/stack.yaml') }}
+        restore-keys: ${{ runner.os }}-lint-
+
+    - name: Build HLint
+      run: stack --no-terminal build hlint
+    - name: Install HLint
+      run: stack --no-terminal install hlint
+    - name: Lint
+      run: stack --no-terminal exec hlint -- src test

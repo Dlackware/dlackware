@@ -1,6 +1,6 @@
 # Dlackware Gnome build system and installer
 
-[![Build Status](https://semaphoreci.com/api/v1/belka-ew/dlackware/branches/master/badge.svg)](https://semaphoreci.com/belka-ew/dlackware)
+[![Build Status](https://github.com/Dlackware/dlackware/workflows/Haskell%20CI/badge.svg)](https://github.com/Dlackware/dlackware/actions?query=workflow%3A%22Haskell+CI%22)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://choosealicense.com/licenses/gpl-3.0/)
 
 This is the build system used to build systemd and Dlackware Gnome distribution
