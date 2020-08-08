@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Upgrade where
 
+import Control.Exception (throw)
 import Control.Monad (unless, void)
 import qualified Data.ByteString.Char8 as C8
 import Data.Text (Text)
@@ -13,6 +14,7 @@ import Slackware.Command
 import Slackware.CompileOrder
 import Slackware.Config as Config
 import Slackware.Download
+import Slackware.Error
 import Slackware.Info
 import Slackware.Log (Level(..), console)
 import qualified Slackware.Version as Version
@@ -62,9 +64,8 @@ upgrade pkgnam toVersion = do
     let infoFile = pkgnam <.> "info"
     content <- C8.readFile infoFile
 
-    pkg <- case parse parseInfoFile infoFile content of
-        Left _ -> error "Unable to parse the .info file"
-        Right pkg -> return pkg
+    let pkg = either (throw . PackageError pkgnam . ParseError) id
+            $ parse parseInfoFile infoFile content
 
     let newDownloads = updateDownloadVersion pkg toVersion
     newChecksums <- fromJust $ downloadAll newDownloads
@@ -80,7 +81,7 @@ upgrade pkgnam toVersion = do
     setCurrentDirectory cwd
 
   where
-    lookupError = error $ unwords [pkgnam, "wasn't found in any compile order"]
+    lookupError = throw $ PackageError pkgnam Missing
 
 upgradeAll :: IO ()
 upgradeAll = do
