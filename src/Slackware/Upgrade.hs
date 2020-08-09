@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Upgrade where
 
-import Control.Exception (throw)
+import Control.Exception (displayException, throw, try)
 import Control.Monad (unless, void)
 import qualified Data.ByteString.Char8 as C8
 import Data.Text (Text)
-import qualified Data.Text as T
+import qualified Data.Text as Text
 import qualified Data.Text.IO as Text.IO
 import qualified Data.Map.Strict as Map
 import Data.List (find)
@@ -26,7 +26,7 @@ import Text.Megaparsec (errorBundlePretty, parse)
 
 getCompileOrders :: Config.Config -> [FilePath]
 getCompileOrders config =
-    let f x = T.unpack (Config.reposRoot config) </> T.unpack x
+    let f x = Text.unpack (Config.reposRoot config) </> Text.unpack x
      in fmap f (Config.repos config)
 
 
@@ -36,11 +36,11 @@ doCompileOrder needle compileOrder = do
     list <- packageList content
     return $ isJust $ find lookup' list
   where
-    lookup' (PackageName _ new) = new == T.pack needle
+    lookup' (PackageName _ new) = new == Text.pack needle
     packageList content =
         case parseCompileOrder compileOrder content of
             Left left -> do
-                console Fatal $ T.pack $ errorBundlePretty left
+                console Fatal $ Text.pack $ errorBundlePretty left
                 exitFailure
             Right right -> return right
 
@@ -74,7 +74,7 @@ upgrade pkgnam toVersion = do
     let gitCommand = "git add . && git commit -m \""
             ++ (takeFileName . takeDirectory $ matchingCompileOrder)
             ++ "/" ++ pkgnam
-            ++ ": Updated for version " ++ T.unpack toVersion ++ "\""
+            ++ ": Updated for version " ++ Text.unpack toVersion ++ "\""
     unless (pkg == newPackage)
         $ Text.IO.writeFile infoFile (generate newPackage)
         >> callCommand gitCommand
@@ -89,4 +89,10 @@ upgradeAll = do
     case parse Version.versions "etc/versions" versions' of
         Left e -> error $ errorBundlePretty e
         Right parsedVersions -> void
-            $ Map.traverseWithKey (upgrade . T.unpack) parsedVersions
+            $ Map.traverseWithKey upgradeOne parsedVersions
+  where
+    tryToUpgrade :: String -> Text -> IO (Either PackageError ())
+    tryToUpgrade pkgnam = try . upgrade pkgnam
+    upgradeOne pkgnam toVersion
+        = tryToUpgrade (Text.unpack pkgnam) toVersion
+        >>= either (console Warn . Text.pack . displayException) pure
