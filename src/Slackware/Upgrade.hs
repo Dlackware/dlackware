@@ -50,8 +50,8 @@ findM f (x:xs) = do
     b <- f x
     if b then (return . Just) x else findM f xs
 
-upgrade :: String -> Text -> IO ()
-upgrade pkgnam toVersion = do
+upgrade :: String -> Text -> Maybe String -> IO ()
+upgrade pkgnam toVersion gnomeVersion = do
     config <- readConfiguration
 
     let compileOrders = getCompileOrders config
@@ -67,7 +67,7 @@ upgrade pkgnam toVersion = do
     let pkg = either (throw . PackageError pkgnam . ParseError) id
             $ parse parseInfoFile infoFile content
 
-    let newDownloads = updateDownloadVersion pkg toVersion
+    let newDownloads = updateDownloadVersion pkg toVersion gnomeVersion
     newChecksums <- fromJust $ downloadAll newDownloads
 
     let newPackage = update pkg toVersion newDownloads newChecksums
@@ -83,8 +83,8 @@ upgrade pkgnam toVersion = do
   where
     lookupError = throw $ PackageError pkgnam Missing
 
-upgradeAll :: IO ()
-upgradeAll = do
+upgradeAll :: Maybe String -> IO ()
+upgradeAll gnomeVersion = do
     versions' <- Text.IO.readFile "etc/versions"
     case parse Version.versions "etc/versions" versions' of
         Left e -> error $ errorBundlePretty e
@@ -92,7 +92,7 @@ upgradeAll = do
             $ Map.traverseWithKey upgradeOne parsedVersions
   where
     tryToUpgrade :: String -> Text -> IO (Either PackageError ())
-    tryToUpgrade pkgnam = try . upgrade pkgnam
+    tryToUpgrade pkgnam toVersion = try $ upgrade pkgnam toVersion gnomeVersion
     upgradeOne pkgnam toVersion
         = tryToUpgrade (Text.unpack pkgnam) toVersion
         >>= either (console Warn . Text.pack . displayException) pure

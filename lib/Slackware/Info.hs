@@ -72,19 +72,31 @@ parseInfoFile = PackageInfo
     <*> (mapMaybe digestFromByteString <$> packageChecksums)
     <* eof 
 
-updateDownloadVersion :: PackageInfo -> Text -> [URI]
-updateDownloadVersion package toVersion = replacePath <$> downloads package
+updateDownloadVersion :: PackageInfo -> Text -> Maybe String -> [URI]
+updateDownloadVersion package toVersion gnomeVersion
+    = updateDownload (version package) toVersion gnomeVersion
+    <$> downloads package
+
+updateDownload :: Text -> Text -> Maybe String -> URI -> URI
+updateDownload fromVersion toVersion gnomeVersion
+    = updateCoreVersion fromVersion toVersion gnomeVersion
+    . updatePackageVersion fromVersion toVersion gnomeVersion
+
+updatePackageVersion :: Text -> Text -> Maybe String -> URI -> URI
+updatePackageVersion fromVersion toVersion _gnomeVersion download = download
+    { uriPath = uriPath download >>= traverse (traverse updatePathPiece)
+    }
   where
-    replacePath download = download
-        { uriPath = uriPath download >>= traverse (traverse updatePathPiece)
-        }
     updatePathPiece = mkPathPiece
         . Text.replace fromMajor toMajor
-        . Text.replace (version package) toVersion
+        . Text.replace fromVersion toVersion
         . unRText
     major = Text.init . fst . Text.breakOnEnd "."
-    fromMajor = major $ version package
+    fromMajor = major fromVersion
     toMajor = major toVersion
+
+updateCoreVersion :: Text -> Text -> Maybe String -> URI -> URI
+updateCoreVersion _fromVersion _toVersion _gnomeVersion = id
 
 update :: PackageInfo -> Text -> [URI] -> [Digest MD5] -> PackageInfo
 update old toVersion downloads' checksums' = old

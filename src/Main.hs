@@ -1,20 +1,21 @@
 module Main where
 
-import Control.Applicative (Alternative(..))
+import Control.Applicative (Alternative(..), optional)
 import Data.Text (Text)
-import Options.Applicative ( Parser
-                           , ParserInfo
-                           , execParser
-                           , subparser
-                           , strArgument
-                           , helper
-                           , (<**>)
-                           , command
-                           , info
-                           , progDesc
-                           , header
-                           , metavar
-                           )
+import Options.Applicative
+    ( Parser
+    , ParserInfo
+    , execParser
+    , subparser
+    , strArgument
+    , helper
+    , (<**>)
+    , command
+    , info
+    , progDesc
+    , header
+    , metavar
+    )
 import Slackware.Command
 import Slackware.Upgrade
 
@@ -22,7 +23,7 @@ data Program = Build
              | DownloadSource
              | Install
              | Upgrade String Text
-             | UpgradeAll
+             | UpgradeAll (Maybe String)
 
 program :: Parser Program
 program = subparser
@@ -36,10 +37,12 @@ program = subparser
          (info (pure Install)
                (progDesc "Install built packages"))
        <> command "upgrade"
-         (info (upgradeParser <|> pure UpgradeAll)
+         (info (upgradeParser <|> upgradeAllParser)
                (progDesc "Upgrade a package (EXPERIMENTAL)"))
        )
   where
+    upgradeAllParser = UpgradeAll
+        <$> optional (strArgument (metavar "VERSION"))
     upgradeParser = Upgrade
         <$> strArgument (metavar "NAME")
         <*> strArgument (metavar "VERSION")
@@ -48,8 +51,8 @@ run :: Program -> IO ()
 run Build = build
 run DownloadSource = downloadSource
 run Install = install
-run (Upgrade pkgnam version) = upgrade pkgnam version
-run UpgradeAll = upgradeAll
+run (Upgrade pkgnam version) = upgrade pkgnam version Nothing
+run (UpgradeAll gnomeVersion) = upgradeAll gnomeVersion
 
 opts :: ParserInfo Program
 opts = info (program <**> helper) (header "Dlackware Build System")
