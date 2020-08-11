@@ -96,7 +96,8 @@ spec = do
                     "pkgnam" "1.2.3" "homepage" downloads' checksumSample
                 expected = maybeToList
                     $ mkURI "https://dlackware.com/download-2.3.4.tar.gz"
-             in updateDownloadVersion testPackage "2.3.4" `shouldBe` expected
+                actual = updateDownloadVersion testPackage "2.3.4" Nothing
+             in actual `shouldBe` expected
 
         it "updates the major version" $
             let downloads' = maybeToList
@@ -105,7 +106,8 @@ spec = do
                     "pkgnam" "1.2.3" "homepage" downloads' checksumSample
                 expected = maybeToList
                     $ mkURI "https://dlackware.com/2.3/download.tar.gz"
-             in updateDownloadVersion testPackage "2.3.4" `shouldBe` expected
+                actual = updateDownloadVersion testPackage "2.3.4" Nothing
+             in actual `shouldBe` expected
 
     describe "update" $
         it "replaces the version" $

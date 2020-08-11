@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Applicative (Alternative(..), optional)
+import Control.Applicative (optional)
 import Data.Text (Text)
 import Options.Applicative
     ( Parser
@@ -37,12 +37,13 @@ program = subparser
          (info (pure Install)
                (progDesc "Install built packages"))
        <> command "upgrade"
-         (info (upgradeParser <|> upgradeAllParser)
+         (info upgradeParser
+               (progDesc "Upgrade a package (EXPERIMENTAL)"))
+       <> command "update-gnome"
+         (info (UpgradeAll <$> optional (strArgument (metavar "VERSION")))
                (progDesc "Upgrade a package (EXPERIMENTAL)"))
        )
   where
-    upgradeAllParser = UpgradeAll
-        <$> optional (strArgument (metavar "VERSION"))
     upgradeParser = Upgrade
         <$> strArgument (metavar "NAME")
         <*> strArgument (metavar "VERSION")

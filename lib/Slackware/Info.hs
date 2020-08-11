@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 module Slackware.Info
     ( PackageInfo(..)
     , generate
@@ -8,10 +10,11 @@ module Slackware.Info
     ) where
 
 import Control.Monad.Combinators (sepBy)
-import Data.ByteArray as ByteArray
+import qualified Data.ByteArray as ByteArray
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -25,7 +28,14 @@ import Data.Word (Word8)
 import Numeric (readHex, showHex)
 import Text.Megaparsec (Parsec, count, eof, takeWhile1P)
 import Text.Megaparsec.Byte (space, string, hexDigitChar)
-import Text.URI (URI(..), mkPathPiece, parserBs, render, unRText)
+import Text.URI
+    ( Authority(..)
+    , URI(..)
+    , mkPathPiece
+    , parserBs
+    , render
+    , unRText
+    )
 
 type GenParser = Parsec Void ByteString
 
@@ -91,12 +101,33 @@ updatePackageVersion fromVersion toVersion _gnomeVersion download = download
         . Text.replace fromMajor toMajor
         . Text.replace fromVersion toVersion
         . unRText
-    major = Text.init . fst . Text.breakOnEnd "."
     fromMajor = major fromVersion
     toMajor = major toVersion
 
+major :: Text -> Text
+major = Text.init . fst . Text.breakOnEnd "."
+
 updateCoreVersion :: Text -> Text -> Maybe String -> URI -> URI
-updateCoreVersion _fromVersion _toVersion _gnomeVersion = id
+updateCoreVersion _fromVersion _toVersion (Just gnomeVersion) download
+    | Just (False, pathPieces) <- uriPath download
+    , (beforeCore, afterCore) <- NonEmpty.break (comparePathPiece "core") pathPieces
+    , _ : _ : _ : sources : afterSources <- afterCore
+    , comparePathPiece "sources" sources && not (null afterSources)
+    , Right (Authority{..}) <- uriAuthority download
+    , ".gnome.org" `Text.isSuffixOf` unRText authHost
+    , Nothing <- authPort =
+        download { uriPath = buildPath beforeCore afterSources }
+  where
+    comparePathPiece this that = Just that == mkPathPiece this
+    buildPath beforeCore afterSources = do
+        core <- mkPathPiece "core"
+        let textGnomeVersion = Text.pack gnomeVersion
+        minorGnomeVersion <- mkPathPiece $ major textGnomeVersion
+        patchGnomeVersion <- mkPathPiece textGnomeVersion
+        sources <- mkPathPiece "sources"
+        let afterCore = core : minorGnomeVersion : patchGnomeVersion : sources : afterSources
+        (False,) <$> NonEmpty.nonEmpty (beforeCore ++ afterCore)
+updateCoreVersion _fromVersion _toVersion _ download = download            
 
 update :: PackageInfo -> Text -> [URI] -> [Digest MD5] -> PackageInfo
 update old toVersion downloads' checksums' = old
