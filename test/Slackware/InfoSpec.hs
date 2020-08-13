@@ -109,6 +109,26 @@ spec = do
                 actual = updateDownloadVersion testPackage "2.3.4" Nothing
              in actual `shouldBe` expected
 
+        it "updates gnome version" $
+            let downloads' = maybeToList
+                    $ mkURI "https://download.gnome.org/core/3.36/3.36.0/sources/gnome-calendar-3.36.0.tar.xz"
+                testPackage = PackageInfo
+                    "gnome-calendar" "3.36.0" "https://wiki.gnome.org/Core/Calendar" downloads' checksumSample
+                expected = maybeToList
+                    $ mkURI "https://download.gnome.org/core/3.36/3.36.4/sources/gnome-calendar-3.36.2.tar.xz"
+                actual = updateDownloadVersion testPackage "3.36.2" $ Just "3.36.4"
+             in actual `shouldBe` expected
+
+        it "updates versions without a patch number" $
+            let downloads' = maybeToList
+                    $ mkURI "https://dlackware.com/gnome-contacts-3.36.tar.xz"
+                testPackage = PackageInfo
+                    "gnome-contacts" "3.36" "homepage" downloads' checksumSample
+                expected = maybeToList
+                    $ mkURI "https://dlackware.com/gnome-contacts-3.36.2.tar.xz"
+                actual = updateDownloadVersion testPackage "3.36.2" Nothing
+             in actual `shouldBe` expected
+
     describe "update" $
         it "replaces the version" $
             let downloads' = maybeToList

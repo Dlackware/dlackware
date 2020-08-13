@@ -105,7 +105,7 @@ updatePackageVersion fromVersion toVersion _gnomeVersion download = download
     toMajor = major toVersion
 
 major :: Text -> Text
-major = Text.init . fst . Text.breakOnEnd "."
+major = Text.intercalate "." . take 2 . Text.splitOn "."
 
 updateCoreVersion :: Text -> Text -> Maybe String -> URI -> URI
 updateCoreVersion _fromVersion _toVersion (Just gnomeVersion) download
@@ -127,7 +127,7 @@ updateCoreVersion _fromVersion _toVersion (Just gnomeVersion) download
         sources <- mkPathPiece "sources"
         let afterCore = core : minorGnomeVersion : patchGnomeVersion : sources : afterSources
         (False,) <$> NonEmpty.nonEmpty (beforeCore ++ afterCore)
-updateCoreVersion _fromVersion _toVersion _ download = download            
+updateCoreVersion _ _ _ download = download            
 
 update :: PackageInfo -> Text -> [URI] -> [Digest MD5] -> PackageInfo
 update old toVersion downloads' checksums' = old
