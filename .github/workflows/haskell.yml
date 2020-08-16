@@ -54,4 +54,4 @@ jobs:
     - name: Install HLint
       run: stack --no-terminal install hlint
     - name: Lint
-      run: stack --no-terminal exec hlint -- src test
+      run: stack --no-terminal exec hlint -- lib src test

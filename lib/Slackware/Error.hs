@@ -34,7 +34,7 @@ data PackageError = PackageError String PackageErrorType
 
 instance Show PackageError where
     show (PackageError pkgName errorType) =
-        pkgName ++ ": " ++ (show errorType)
+        pkgName ++ ": " ++ show errorType
 
 instance Exception PackageError
 

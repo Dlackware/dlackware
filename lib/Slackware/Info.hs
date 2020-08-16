@@ -113,7 +113,7 @@ updateCoreVersion _fromVersion _toVersion (Just gnomeVersion) download
     , (beforeCore, afterCore) <- NonEmpty.break (comparePathPiece "core") pathPieces
     , _ : _ : _ : sources : afterSources <- afterCore
     , comparePathPiece "sources" sources && not (null afterSources)
-    , Right (Authority{..}) <- uriAuthority download
+    , Right Authority{..} <- uriAuthority download
     , ".gnome.org" `Text.isSuffixOf` unRText authHost
     , Nothing <- authPort =
         download { uriPath = buildPath beforeCore afterSources }
