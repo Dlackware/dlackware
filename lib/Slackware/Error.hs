@@ -7,14 +7,14 @@ module Slackware.Error
 
 import Control.Exception (Exception(..), displayException)
 import qualified Data.ByteString.Char8 as C8
-import qualified Data.Text as T
+import qualified Data.Text as Text
 import Data.Void (Void)
 import Text.Megaparsec.Error (ParseErrorBundle(..), errorBundlePretty)
 import Network.HTTP.Req (HttpException(..))
 
 data PackageErrorType
     = ChecksumMismatch
-    |  UnsupportedDownload
+    | UnsupportedDownload
     | BuildError
     | InstallError IOError
     | DownloadError HttpException
@@ -38,5 +38,5 @@ instance Show PackageError where
 
 instance Exception PackageError
 
-showPackageError :: PackageError -> T.Text
-showPackageError = T.pack . show
+showPackageError :: PackageError -> Text.Text
+showPackageError = Text.pack . displayException

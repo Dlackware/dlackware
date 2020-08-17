@@ -1,10 +1,10 @@
 name:                dlackware
-version:             1.0.1.0
+version:             1.2.0
 github:              "Dlackware/dlackware"
 license:             GPL-3
 author:              "Eugene Wissner"
 maintainer:          "info@dlackware.com"
-copyright:           "2018-2019 Eugene Wissner"
+copyright:           "2018-2020 Eugene Wissner"
 
 extra-source-files:
 - README.md
