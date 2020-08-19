@@ -1,17 +1,32 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-#  LANGUAGE OverloadedStrings #-}
+
+-- | Error handling.
 module Slackware.Error
-    ( PackageError(..)
+    ( BuildSystemException(..)
+    , PackageError(..)
     , PackageErrorType(..)
     , showPackageError
     ) where
 
 import Control.Exception (Exception(..), displayException)
 import qualified Data.ByteString.Char8 as C8
+import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Typeable (cast)
 import Data.Void (Void)
 import Text.Megaparsec.Error (ParseErrorBundle(..), errorBundlePretty)
 import Network.HTTP.Req (HttpException(..))
 
+-- | Root exception type for all the handled exceptions.
+data BuildSystemException = forall e. Exception e => BuildSystemException e
+
+instance Show BuildSystemException where
+    show (BuildSystemException e) = show e
+
+instance Exception BuildSystemException
+
+-- | Types of the errors that can occur when buildingg a package.
 data PackageErrorType
     = ChecksumMismatch
     | UnsupportedDownload
@@ -30,13 +45,19 @@ instance Show PackageErrorType where
     show (ParseError e) = errorBundlePretty e
     show Missing = "Not found in any compile order"
 
+-- | Error buidling a package.
 data PackageError = PackageError String PackageErrorType
 
 instance Show PackageError where
     show (PackageError pkgName errorType) =
         pkgName ++ ": " ++ show errorType
 
-instance Exception PackageError
+instance Exception PackageError where
+    toException = toException . BuildSystemException
+    fromException x = do
+        BuildSystemException a <- fromException x
+        cast a
 
-showPackageError :: PackageError -> Text.Text
+-- | Show an error as 'Text'.
+showPackageError :: BuildSystemException -> Text
 showPackageError = Text.pack . displayException

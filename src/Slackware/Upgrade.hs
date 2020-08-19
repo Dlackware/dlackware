@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Slackware.Upgrade where
 
-import Control.Exception (displayException, throw, try)
+import Control.Exception (throw)
 import Control.Monad (unless, void)
 import qualified Data.ByteString.Char8 as C8
 import Data.Text (Text)
@@ -91,8 +91,5 @@ upgradeAll gnomeVersion = do
         Right parsedVersions -> void
             $ Map.traverseWithKey upgradeOne parsedVersions
   where
-    tryToUpgrade :: String -> Text -> IO (Either PackageError ())
-    tryToUpgrade pkgnam toVersion = try $ upgrade pkgnam toVersion gnomeVersion
-    upgradeOne pkgnam toVersion
-        = tryToUpgrade (Text.unpack pkgnam) toVersion
-        >>= either (console Warn . Text.pack . displayException) pure
+    upgradeOne pkgnam toVersion =
+        upgrade (Text.unpack pkgnam) toVersion gnomeVersion

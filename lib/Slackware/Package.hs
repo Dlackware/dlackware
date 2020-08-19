@@ -9,17 +9,15 @@ module Slackware.Package
     , unameM
     ) where
 
-import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Slackware.Config as Config
 import Slackware.Info
-import Slackware.Error
 
 data Environment = Environment String Config.Config
 
-type ActionT a = ExceptT PackageError (ReaderT Environment IO) a
+type ActionT = ReaderT Environment IO
 
 type Command
     = PackageInfo

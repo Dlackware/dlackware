@@ -1,76 +1,54 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Slackware.Command ( build
-                         , downloadSource
-                         , install
-                         , readConfiguration
-                         ) where
+module Slackware.Command
+    ( build
+    , downloadSource
+    , install
+    , readConfiguration
+    ) where
 
-import Conduit
+import Conduit (ZipSink(..), liftIO, stdoutC, withSinkFile)
 import Control.Monad (when)
 import Prelude hiding (break)
-import Slackware.Arch ( grepSlackBuild
-                      , uname
-                      )
-import Slackware.CompileOrder ( Step(..)
-                              , parseCompileOrder
-                              )
-import Slackware.Log ( Level(..)
-                     , console
-                     )
+import Slackware.Arch
+import Slackware.CompileOrder
+import Slackware.Log
 import qualified Slackware.Config as Config
 import Slackware.Package
-import Control.Exception ( IOException
-                         , try
-                         )
-import Control.Monad.Trans.Cont
-import Control.Monad.Trans.Except
+import Control.Exception (IOException, throw, try)
+import Control.Monad.Trans.Cont (ContT(..), callCC, runContT)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
-import Crypto.Hash ( Digest
-                   , MD5
-                   , hashlazy
-                   )
+import Crypto.Hash (Digest, MD5, hashlazy)
 import Data.Foldable (foldrM, for_, traverse_)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T.IO
-import Slackware.Info ( parseInfoFile
-                      , PackageInfo(..)
-                      )
+import Slackware.Info
 import Slackware.Download
 import Slackware.Error
-import Slackware.Process ( outErrProcess
-                         , runSlackBuild
-                         )
-import System.Directory ( createDirectoryIfMissing
-                        , doesFileExist
-                        , getCurrentDirectory
-                        , setCurrentDirectory
-                        )
-import System.Exit ( ExitCode(..)
-                   , exitFailure
-                   )
+import Slackware.Process (outErrProcess, runSlackBuild)
+import System.Directory
+    ( createDirectoryIfMissing
+    , doesFileExist
+    , getCurrentDirectory
+    , setCurrentDirectory
+    )
+import System.Exit (ExitCode(..), exitFailure)
 import System.FilePath ((</>), (<.>), joinPath, takeDirectory)
 import System.IO.Error (tryIOError)
-import System.Process ( readProcess
-                      , callProcess
-                      )
+import System.Process (readProcess, callProcess)
 import Text.Megaparsec (errorBundlePretty, parse)
 import Text.URI (URI)
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
 
-installpkg
-    :: Text
-    -> String
-    -> ActionT ()
+installpkg :: Text -> String -> ActionT ()
 installpkg old fullPkgName = do
     processReturn <- liftIO $ tryIOError upgradepkg
-    either throw pure processReturn
+    either (throw . PackageError fullPkgName . InstallError) pure processReturn
   where
-    throw = throwE . PackageError fullPkgName . InstallError
     fullPath = concat
         [ T.unpack old
         , "/var/cache/dlackware/"
@@ -88,7 +66,7 @@ buildFullPackageName pkg arch buildNumber
 
 buildPackage :: Command
 buildPackage pkg old = do
-    unameM' <- lift $ asks unameM
+    unameM' <- asks unameM
     let slackBuild = pkgname pkg <.> "SlackBuild"
     (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
@@ -103,7 +81,7 @@ buildPackage pkg old = do
 
         _ <- downloadPackageSource pkg old
 
-        loggingDirectory' <- lift $ asks loggingDirectory
+        loggingDirectory' <- asks loggingDirectory
         let logFile = loggingDirectory'
                   </> (pkgname pkg ++ "-" ++ T.unpack (version pkg) ++ ".log")
         code <- liftIO $ withSinkFile logFile $ \sink -> do
@@ -113,12 +91,12 @@ buildPackage pkg old = do
 
         case code of
             ExitSuccess -> installpkg old fullPkgName >> pure True
-            _ -> throwE $ PackageError (pkgname pkg) BuildError
+            _ -> throw $ PackageError (pkgname pkg) BuildError
 
 installPackage :: Command
 installPackage pkg old = do
     let slackBuild = pkgname pkg <.> "SlackBuild"
-    unameM' <- lift $ asks unameM
+    unameM' <- asks unameM
     (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
 
     installpkg old $ buildFullPackageName pkg arch buildNumber
@@ -131,15 +109,15 @@ downloadPackageSource pkg _ = do
     urls <- foldrM tryExistingDownload [] $ zip (downloads pkg) (checksums pkg)
     downloaded <- case downloadAll (fst <$> urls) of
         (Just request) -> return request
-        Nothing -> throwE $ PackageError (pkgname pkg) UnsupportedDownload
+        Nothing -> throw $ PackageError (pkgname pkg) UnsupportedDownload
 
     caught <- liftIO $ try downloaded
     sums <- case caught of
-        (Left e) -> throwE $ PackageError (pkgname pkg) $ DownloadError e
+        (Left e) -> throw $ PackageError (pkgname pkg) $ DownloadError e
         (Right result) -> return result
 
     if sums /= (snd <$> urls)
-       then throwE $ PackageError (pkgname pkg) ChecksumMismatch
+       then throw $ PackageError (pkgname pkg) ChecksumMismatch
        else pure True
 
   where
@@ -162,19 +140,13 @@ doCompileOrder command compileOrder = do
           console Fatal $ T.pack $ errorBundlePretty left
           exitFailure
 
-    maybeError <- action packageList
-    case maybeError of
-      Left message -> liftIO $ do
-          console Fatal $ showPackageError message
-          exitFailure
-      Right evaluated -> pure $ or evaluated
-
+    or <$> action packageList
   where
     compileOrderPath = (</> compileOrder) . root
     action packageList = do
         compileOrderDirectory <- asks (takeDirectory . compileOrderPath)
         let doAction = doPackage command compileOrderDirectory
-         in runExceptT $ traverse doAction packageList
+         in traverse doAction packageList
 
 doPackage :: Command -> FilePath -> Step -> ActionT Bool
 doPackage command repo step = do
@@ -185,7 +157,7 @@ doPackage command repo step = do
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throwE $ PackageError (T.unpack pkgName) $ ParseError left
+        Left left -> throw $ PackageError (T.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
     evaluated <- command pkg (fst exploded)
 
