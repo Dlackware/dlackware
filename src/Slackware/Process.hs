@@ -1,27 +1,23 @@
-module Slackware.Process ( outErrProcess
-                         , runSlackBuild
-                         ) where
+module Slackware.Process
+    ( outErrProcess
+    , runSlackBuild
+    ) where
 
-import Conduit ( ConduitM
-               , (.|)
-               , runConduit
-               , sourceHandle
-               )
+import Conduit (ConduitM, (.|), runConduit, sourceHandle)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Char8 as C8
 import Data.Void (Void)
-import GHC.IO.Handle ( Handle
-                     , hClose
-                     )
+import GHC.IO.Handle (Handle, hClose)
 import System.Environment (getEnvironment)
 import System.FilePath ((</>))
-import System.Process ( CreateProcess(..)
-                      , CmdSpec(..)
-                      , StdStream(..)
-                      , createPipe
-                      , createProcess
-                      , waitForProcess
-                      )
+import System.Process
+    ( CreateProcess(..)
+    , CmdSpec(..)
+    , StdStream(..)
+    , createPipe
+    , createProcess
+    , waitForProcess
+    )
 import System.Exit (ExitCode(..))
 
 outErrProcess :: (CreateProcess, Handle) -> ConduitM C8.ByteString Void IO a -> IO ExitCode
@@ -54,5 +50,3 @@ runSlackBuild slackBuild environment = do
         , child_user = Nothing
         , use_process_jobs = False
         }, readEnd)
-
-
