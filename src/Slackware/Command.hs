@@ -7,27 +7,27 @@ module Slackware.Command
     ) where
 
 import Conduit (ZipSink(..), liftIO, stdoutC, withSinkFile)
-import Control.Monad (when)
-import Prelude hiding (break)
+import Control.Monad (void)
 import Slackware.Arch
 import Slackware.CompileOrder
 import Slackware.Log
 import qualified Slackware.Config as Config
 import Slackware.Package
 import Control.Exception (IOException, throw, try)
-import Control.Monad.Trans.Cont (ContT(..), callCC, runContT)
 import Control.Monad.Trans.Reader (ReaderT, asks, runReaderT)
 import Crypto.Hash (Digest, MD5, hashlazy)
-import Data.Foldable (foldrM, for_, traverse_)
+import Data.Foldable (foldrM, traverse_)
+import Data.Either (fromRight)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T.IO
+import qualified Data.Text.IO as Text.IO
 import Slackware.Info
 import Slackware.Download
 import Slackware.Error
 import Slackware.Process (outErrProcess, runSlackBuild)
+import qualified Slackware.Version as Version
 import System.Directory
     ( createDirectoryIfMissing
     , doesFileExist
@@ -66,9 +66,9 @@ buildFullPackageName pkg arch buildNumber
 
 buildPackage :: Command
 buildPackage pkg old = do
-    unameM' <- asks unameM
+    unameM' <- asks machine
     let slackBuild = pkgname pkg <.> "SlackBuild"
-    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
+    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (Text.IO.readFile slackBuild)
 
     let fullPkgName = buildFullPackageName pkg arch buildNumber
     let pkgtoolsDb = "/var/lib/pkgtools/packages/" ++ fullPkgName
@@ -96,8 +96,8 @@ buildPackage pkg old = do
 installPackage :: Command
 installPackage pkg old = do
     let slackBuild = pkgname pkg <.> "SlackBuild"
-    unameM' <- asks unameM
-    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (T.IO.readFile slackBuild)
+    unameM' <- asks machine
+    (buildNumber, arch) <- grepSlackBuild unameM' <$> liftIO (Text.IO.readFile slackBuild)
 
     installpkg old $ buildFullPackageName pkg arch buildNumber
     pure True
@@ -132,7 +132,7 @@ downloadPackageSource pkg _ = do
 doCompileOrder :: Command -> String -> ReaderT Environment IO Bool
 doCompileOrder command compileOrder = do
     compileOrderPath' <- asks compileOrderPath
-    content <- liftIO $ T.IO.readFile compileOrderPath'
+    content <- liftIO $ Text.IO.readFile compileOrderPath'
 
     packageList <- case parseCompileOrder compileOrderPath' content of
       Right right -> return right
@@ -184,7 +184,16 @@ collectRunInformation :: IO Environment
 collectRunInformation = do
     config <- readConfiguration
     unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    return $ Environment unameM' config
+    Environment unameM' config <$> collectVersions
+  where
+    collectVersions = do
+        let versionsFile = "etc/versions"
+        versionsFileExist <- doesFileExist versionsFile
+        if versionsFileExist
+        then fromRight mempty
+            . parse Version.versions versionsFile
+            <$> Text.IO.readFile versionsFile
+        else pure mempty
 
 -- | Build all packages specified in the configuration.
 build :: IO ()
@@ -192,25 +201,11 @@ build = do
     environment <- collectRunInformation
     createDirectoryIfMissing False $ temporaryDirectory environment
 
-    runContT (forRepository environment (buildCompileOrder environment)) return
+    traverse_ (buildCompileOrder environment) $ repositories environment
   where
-    buildCompileOrder environment break compileOrder = do
-        builtAny <- liftIO
+    buildCompileOrder environment compileOrder = do
+        void $ liftIO
             $ runReaderT (doCompileOrder buildPackage compileOrder) environment
-
-        let condition = compileOrder == "systemd/compile-order" && builtAny
-        when condition $ reboot break
-
-    forRepository environment buildCompileOrder' =
-        callCC $ for_ (repositories environment) . buildCompileOrder'
-
-reboot :: (() -> ContT () IO ()) -> ContT () IO ()
-reboot break = do
-    _ <- liftIO $ T.IO.putStrLn "The Computer must be restarted before \
-        \building can continue. Would you like to reboot now? (Yes/No)"
-    answer <- liftIO T.IO.getLine
-    when (answer == "Yes") $ liftIO $ callProcess "/sbin/reboot" mempty
-    break ()
 
 -- | Only download the sources.
 downloadSource :: IO ()
