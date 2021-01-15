@@ -4,10 +4,11 @@ module Slackware.Command
     , downloadSource
     , install
     , readConfiguration
+    , updateGnome
     ) where
 
 import Conduit (ZipSink(..), liftIO, stdoutC, withSinkFile)
-import Control.Monad (void)
+import Control.Monad (foldM, void)
 import Slackware.Arch
 import Slackware.CompileOrder
 import Slackware.Log
@@ -20,8 +21,12 @@ import Data.Foldable (foldrM, traverse_)
 import Data.Either (fromRight)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as BSL
+import Data.YAML (Pos, decode)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
 import Data.Text (Text)
-import qualified Data.Text as T
+import qualified Data.Text as Text
 import qualified Data.Text.IO as Text.IO
 import Slackware.Info
 import Slackware.Download
@@ -30,16 +35,18 @@ import Slackware.Process (outErrProcess, runSlackBuild)
 import qualified Slackware.Version as Version
 import System.Directory
     ( createDirectoryIfMissing
+    , doesDirectoryExist
     , doesFileExist
     , getCurrentDirectory
+    , listDirectory
     , setCurrentDirectory
     )
 import System.Exit (ExitCode(..), exitFailure)
-import System.FilePath ((</>), (<.>), joinPath, takeDirectory)
-import System.IO.Error (tryIOError)
+import System.FilePath ((</>), (<.>), joinPath, splitExtension, takeDirectory)
+import System.IO.Error (catchIOError, tryIOError)
 import System.Process (readProcess, callProcess)
 import Text.Megaparsec (errorBundlePretty, parse)
-import Text.URI (URI)
+import Text.URI (URI(..), mkURI)
 
 md5sum :: BSL.ByteString -> Digest MD5
 md5sum = hashlazy
@@ -50,7 +57,7 @@ installpkg old fullPkgName = do
     either (throw . PackageError fullPkgName . InstallError) pure processReturn
   where
     fullPath = concat
-        [ T.unpack old
+        [ Text.unpack old
         , "/var/cache/dlackware/"
         , fullPkgName
         , ".txz"
@@ -60,9 +67,42 @@ installpkg old fullPkgName = do
 
 buildFullPackageName :: PackageInfo -> String -> String -> String
 buildFullPackageName pkg arch buildNumber
-    = pkgname pkg ++ "-" ++ T.unpack (version pkg)
+    = pkgname pkg ++ "-" ++ Text.unpack (version pkg)
     ++ "-" ++ arch
     ++ "-" ++ buildNumber ++ "_dlack"
+
+upgradePackage :: Command
+upgradePackage pkg _ = do
+    versionMap <- asks versions
+    streamMap <- asks streams
+    let maybeToVersion = Map.lookup (Text.pack $ pkgname pkg) versionMap
+    let maybeStream = Map.lookup (Text.pack $ pkgname pkg) streamMap
+
+    case (maybeToVersion, maybeStream) of
+        (Just toVersion, Just stream) -> do
+            streamContents <- liftIO $ BSL.readFile stream
+            let parsedStream = decode streamContents :: Either (Pos, String) [Version.BuildStream]
+
+            case parsedStream of
+                Right [buildStream] -> do
+                    let newDownloads = replaceURL . Version.url <$> Version.sources buildStream
+                    newChecksums <- liftIO $ fromJust $ downloadAll newDownloads
+
+                    let infoFile = pkgname pkg <.> "info"
+                    let newPackage = update pkg toVersion newDownloads newChecksums
+                    if pkg == newPackage
+                    then do
+                        liftIO $ Text.IO.writeFile infoFile (generate newPackage)
+                        pure True
+                    else pure False
+                _ -> pure False
+
+        _ -> pure False
+  where
+    replaceURL = fromJust
+        . mkURI
+        . Text.replace "gnome_downloads:" "https://download.gnome.org/sources/"
+
 
 buildPackage :: Command
 buildPackage pkg old = do
@@ -77,16 +117,16 @@ buildPackage pkg old = do
     if alreadyInstalled
     then pure False
     else do
-        liftIO $ console Info $ T.append "Building package " $ T.pack $ pkgname pkg
+        liftIO $ console Info $ Text.append "Building package " $ Text.pack $ pkgname pkg
 
         _ <- downloadPackageSource pkg old
 
         loggingDirectory' <- asks loggingDirectory
         let logFile = loggingDirectory'
-                  </> (pkgname pkg ++ "-" ++ T.unpack (version pkg) ++ ".log")
+                  </> (pkgname pkg ++ "-" ++ Text.unpack (version pkg) ++ ".log")
         code <- liftIO $ withSinkFile logFile $ \sink -> do
             let output = getZipSink $ ZipSink stdoutC *> ZipSink sink
-            cp <- liftIO $ runSlackBuild slackBuild [("VERSION", T.unpack $ version pkg)]
+            cp <- liftIO $ runSlackBuild slackBuild [("VERSION", Text.unpack $ version pkg)]
             outErrProcess cp output
 
         case code of
@@ -104,7 +144,7 @@ installPackage pkg old = do
 
 downloadPackageSource :: Command
 downloadPackageSource pkg _ = do
-    liftIO $ console Info $ T.append "Downloading the sources for " $ T.pack $ pkgname pkg
+    liftIO $ console Info $ Text.append "Downloading the sources for " $ Text.pack $ pkgname pkg
 
     urls <- foldrM tryExistingDownload [] $ zip (downloads pkg) (checksums pkg)
     downloaded <- case downloadAll (fst <$> urls) of
@@ -137,7 +177,7 @@ doCompileOrder command compileOrder = do
     packageList <- case parseCompileOrder compileOrderPath' content of
       Right right -> return right
       Left left -> liftIO $ do
-          console Fatal $ T.pack $ errorBundlePretty left
+          console Fatal $ Text.pack $ errorBundlePretty left
           exitFailure
 
     or <$> action packageList
@@ -151,13 +191,13 @@ doCompileOrder command compileOrder = do
 doPackage :: Command -> FilePath -> Step -> ActionT Bool
 doPackage command repo step = do
     oldDirectory <- liftIO getCurrentDirectory
-    liftIO $ setCurrentDirectory $ repo </> T.unpack pkgName
+    liftIO $ setCurrentDirectory $ repo </> Text.unpack pkgName
 
-    let infoFile = joinPath [repo, T.unpack pkgName, T.unpack pkgName <.> "info"]
+    let infoFile = joinPath [repo, Text.unpack pkgName, Text.unpack pkgName <.> "info"]
     content <- liftIO $ C8.readFile infoFile
 
     pkg <- case parse parseInfoFile infoFile content of
-        Left left -> throw $ PackageError (T.unpack pkgName) $ ParseError left
+        Left left -> throw $ PackageError (Text.unpack pkgName) $ ParseError left
         Right pkg -> return pkg
     evaluated <- command pkg (fst exploded)
 
@@ -166,7 +206,7 @@ doPackage command repo step = do
     pure evaluated
   where
     explodePackageName (PackageName Nothing new) = ("", new)
-    explodePackageName (PackageName (Just old) new) = (T.snoc old '%', new)
+    explodePackageName (PackageName (Just old) new) = (Text.snoc old '%', new)
     exploded = explodePackageName step
     pkgName = snd exploded
 
@@ -177,14 +217,18 @@ readConfiguration = do
         Left x -> console Fatal x >> exitFailure
         Right x -> return x
 
-    createDirectoryIfMissing True $ T.unpack $ Config.loggingDirectory config
+    createDirectoryIfMissing True $ Text.unpack $ Config.loggingDirectory config
     return config
 
 collectRunInformation :: IO Environment
 collectRunInformation = do
     config <- readConfiguration
     unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
-    Environment unameM' config <$> collectVersions
+    versions' <- collectVersions
+    currentDirectory <- getCurrentDirectory
+    let streamRoot = currentDirectory </> "etc/gnome"
+    streams' <- collectStreams streamRoot `catchIOError` const (pure mempty)
+    pure $ Environment unameM' config versions' streams'
   where
     collectVersions = do
         let versionsFile = "etc/versions"
@@ -194,6 +238,19 @@ collectRunInformation = do
             . parse Version.versions versionsFile
             <$> Text.IO.readFile versionsFile
         else pure mempty
+    collectStreams :: FilePath -> IO (Map Text FilePath)
+    collectStreams directory = do
+        rootDirectory <- listDirectory directory
+        foldM (forEachFile directory) mempty rootDirectory
+    forEachFile rootDirectory accumulator file = do
+        let filePath = rootDirectory </> file
+        isDirectory <- doesDirectoryExist filePath
+        case isDirectory of
+            True -> (accumulator <>) <$> collectStreams filePath
+            False
+                | (basename, ".bst") <- splitExtension file ->
+                    pure $ Map.insert (Text.pack basename) filePath accumulator
+                | otherwise -> pure accumulator
 
 -- | Build all packages specified in the configuration.
 build :: IO ()
@@ -203,7 +260,7 @@ build = do
 
     traverse_ (buildCompileOrder environment) $ repositories environment
   where
-    buildCompileOrder environment compileOrder = do
+    buildCompileOrder environment compileOrder =
         void $ liftIO
             $ runReaderT (doCompileOrder buildPackage compileOrder) environment
 
@@ -224,3 +281,11 @@ install = do
     let installPackage' =
             flip runReaderT environment . doCompileOrder installPackage
      in traverse_ installPackage' $ repositories environment
+
+updateGnome :: Maybe String -> IO ()
+updateGnome _gnomeVersion = do
+    environment <- collectRunInformation
+
+    let upgradePackage' =
+            flip runReaderT environment . doCompileOrder upgradePackage
+     in traverse_ upgradePackage' $ repositories environment

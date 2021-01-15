@@ -12,7 +12,7 @@ runCommand Build = build
 runCommand DownloadSource = downloadSource
 runCommand Install = install
 runCommand (Upgrade pkgnam version) = upgrade pkgnam version Nothing
-runCommand (UpgradeAll gnomeVersion) = upgradeAll gnomeVersion
+runCommand (UpgradeAll gnomeVersion) = updateGnome gnomeVersion
 
 run :: Program -> IO ()
 run command = tryCommand

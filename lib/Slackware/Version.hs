@@ -2,7 +2,9 @@
 
 -- | Data and parser for Gnome "versions" files.
 module Slackware.Version
-    ( versions
+    ( BuildStream(..)
+    , Source(..)
+    , versions
     ) where
 
 import Control.Applicative (Alternative(..))
@@ -10,6 +12,7 @@ import qualified Data.Map.Lazy as Map
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Void (Void)
+import Data.YAML ((.:), FromYAML(..), withMap)
 import Text.Megaparsec (Parsec, eof, optional, takeWhile1P)
 import Text.Megaparsec.Char (char, eol, space1)
 import Text.Megaparsec.Char.Lexer (lexeme, skipLineComment)
@@ -36,3 +39,23 @@ version = parseBlock "category" *> nameVersion
     nameVersion = (,)
         <$> parseBlock "package name"
         <*> parseBlock "package version"
+
+data Source = Source
+    { kind :: Text
+    , url :: Text
+    , ref :: Text
+    } deriving Show
+
+instance FromYAML Source where
+    parseYAML = withMap "Source" $ \m -> Source
+        <$> m .: "kind"
+        <*> m .: "url"
+        <*> m .: "ref"
+
+newtype BuildStream = BuildStream
+    { sources :: [Source]
+    } deriving Show
+
+instance FromYAML BuildStream where
+    parseYAML = withMap "BuildStream" $ \m -> BuildStream
+        <$> m .: "sources"
