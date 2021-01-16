@@ -6,8 +6,6 @@ module Slackware.CommandLine
     ) where
 
 import Control.Applicative (optional)
-import Data.Text (Text)
-import qualified Data.Text as Text
 import Options.Applicative
     ( Parser
     , ParserInfo
@@ -31,7 +29,6 @@ data Program
     = Build -- ^ Build all packages.
     | DownloadSource -- ^ Download all sources.
     | Install -- ^ Install prebuilt packages.
-    | Upgrade String Text -- ^ Upgrade a package to the given version.
     -- | Upgrade all packages. The argument is an optional Gnome version.
     | UpgradeAll (Maybe String)
     deriving Eq
@@ -40,8 +37,6 @@ instance Show Program where
     show Build = "build"
     show DownloadSource = "download"
     show Install = "install"
-    show (Upgrade pkgnam version) =
-        unwords ["upgrade", pkgnam, Text.unpack version]
     show (UpgradeAll gnomeVersion) =
         "update-gnome" ++ maybe "" (' ' :) gnomeVersion
 
@@ -56,17 +51,10 @@ program = subparser
        <> command "install"
          (info (pure Install)
                (progDesc "Install built packages"))
-       <> command "upgrade"
-         (info upgradeParser
-               (progDesc "Upgrade a package"))
        <> command "update-gnome"
          (info (UpgradeAll <$> optional (strArgument (metavar "VERSION")))
                (progDesc "Upgrade a package"))
        )
-  where
-    upgradeParser = Upgrade
-        <$> strArgument (metavar "NAME")
-        <*> strArgument (metavar "VERSION")
 
 opts :: ParserInfo Program
 opts = info (program <**> helper) (header "Dlackware Build System")

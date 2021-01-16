@@ -5,13 +5,11 @@ import Slackware.Command
 import Slackware.CommandLine
 import Slackware.Error
 import Slackware.Log
-import Slackware.Upgrade
 
 runCommand :: Program -> IO ()
 runCommand Build = build
 runCommand DownloadSource = downloadSource
 runCommand Install = install
-runCommand (Upgrade pkgnam version) = upgrade pkgnam version Nothing
 runCommand (UpgradeAll gnomeVersion) = updateGnome gnomeVersion
 
 run :: Program -> IO ()

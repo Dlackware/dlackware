@@ -73,36 +73,50 @@ buildFullPackageName pkg arch buildNumber
 
 upgradePackage :: Command
 upgradePackage pkg _ = do
-    versionMap <- asks versions
-    streamMap <- asks streams
-    let maybeToVersion = Map.lookup (Text.pack $ pkgname pkg) versionMap
-    let maybeStream = Map.lookup (Text.pack $ pkgname pkg) streamMap
+    maybeToVersion <- asks $ Map.lookup (Text.pack $ pkgname pkg) . versions
+    maybeStream <- asks $ Map.lookup (Text.pack $ pkgname pkg) . streams
 
-    case (maybeToVersion, maybeStream) of
-        (Just toVersion, Just stream) -> do
-            streamContents <- liftIO $ BSL.readFile stream
-            let parsedStream = decode streamContents :: Either (Pos, String) [Version.BuildStream]
-
-            case parsedStream of
-                Right [buildStream] -> do
-                    let newDownloads = replaceURL . Version.url <$> Version.sources buildStream
-                    newChecksums <- liftIO $ fromJust $ downloadAll newDownloads
-
-                    let infoFile = pkgname pkg <.> "info"
-                    let newPackage = update pkg toVersion newDownloads newChecksums
-                    if pkg == newPackage
-                    then do
-                        liftIO $ Text.IO.writeFile infoFile (generate newPackage)
-                        pure True
-                    else pure False
-                _ -> pure False
-
-        _ -> pure False
+    updateInfo maybeToVersion maybeStream
   where
+    decodeBuildStream :: BSL.ByteString
+        -> Either (Pos, String) [Version.BuildStream]
+    decodeBuildStream = decode
+    updateInfo (Just toVersion) (Just stream) = do
+        streamContents <- liftIO $ BSL.readFile stream
+        let parsedStream = decodeBuildStream streamContents 
+
+        case parsedStream of
+            Right [buildStream] -> do
+                let newDownloads = replaceURL . Version.url
+                        <$> Version.sources buildStream
+                newChecksums <- liftIO $ fromJust $ downloadAll newDownloads
+
+                let newPackage = update pkg toVersion newDownloads newChecksums
+                writeUpdate pkg newPackage
+            _ -> pure False
+    updateInfo _ _ = pure False
+    writeUpdate package newPackage
+        | package == newPackage
+            = liftIO (console Warn (upToDateString package))
+            >> pure False
+        | otherwise =
+            let infoFile = pkgname package <.> "info"
+             in liftIO $ Text.IO.writeFile infoFile (generate newPackage)
+            >> console Info (updateString newPackage)
+            >> pure True
+    upToDateString package = Text.unwords
+        [ Text.pack (pkgname package)
+        , "is up to date"
+        ]
+    updateString package = Text.unwords
+        [ "Updated"
+        , Text.pack (pkgname pkg)
+        , "for version"
+        , version package
+        ]
     replaceURL = fromJust
         . mkURI
         . Text.replace "gnome_downloads:" "https://download.gnome.org/sources/"
-
 
 buildPackage :: Command
 buildPackage pkg old = do
