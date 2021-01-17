@@ -81,3 +81,26 @@ stack test --pedantic
 stack build hlint
 stack exec hlint -- src test
 ```
+
+## Auto-updater
+
+Dlackware has capabilities to update many Gnome build scripts to newer versions
+automatically. It relies on information provided by Gnome maintainers to do so.
+Following information is required:
+
+- Versions file (text file)
+- BuildStream meta data (.tar-archive)
+
+These can be downloaded from https://download.gnome.org/teams/releng. Extract
+`gnome-GNOME.VERSION.tar.xz`, rename the directory inside it into `gnome` and
+put it into `./etc`. Place `versions` in `./etc` as well.
+
+Now you can execute:
+
+```shell
+stack exec dlackware -- update-gnome
+```
+
+The updater makes its best effort to recognize the packages that need to be
+updated and modify the .info files, you still need to check whether the updates
+are made correctly.
