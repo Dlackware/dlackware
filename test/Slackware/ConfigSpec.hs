@@ -14,6 +14,7 @@ validConfiguration :: C8L.ByteString
 validConfiguration = "reposRoot: /opt/dlackware-scripts\n\
                      \loggingDirectory: /var/log/dlackware\n\
                      \temporaryDirectory: /tmp/dlackware\n\
+                     \gnomeVersion: 3.38.3\n\
                      \repos:\n\
                      \- repo1"
 
@@ -26,6 +27,7 @@ spec =
                     , loggingDirectory = "/var/log/dlackware"
                     , temporaryDirectory = "/tmp/dlackware"
                     , repos = ["repo1"]
+                    , gnomeVersion = "3.38.3"
                     }
             parseConfig "" validConfiguration `shouldBe` Right expected
 

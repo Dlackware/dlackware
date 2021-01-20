@@ -1,6 +1,7 @@
 reposRoot: /opt/dlackware-scripts/gnome
 loggingDirectory: /var/log/dlackware
 temporaryDirectory: /tmp/dlackware
+gnomeVersion: 3.38.3
 repos:
 - sysdeps/compile-order
 - core/compile-order

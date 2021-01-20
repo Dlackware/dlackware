@@ -10,7 +10,7 @@ runCommand :: Program -> IO ()
 runCommand Build = build
 runCommand DownloadSource = downloadSource
 runCommand Install = install
-runCommand (UpgradeAll gnomeVersion) = updateGnome gnomeVersion
+runCommand UpgradeAll = updateGnome
 
 run :: Program -> IO ()
 run command = tryCommand

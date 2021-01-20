@@ -72,6 +72,7 @@ configuration file mentioned above.
   `compile-order` files, text files with a list of packages in the order these
   should be built. Dlackware doesn't look into the directory structure to find
   the packages; only the packages mentioned in `compile-order`s are built.
+- `gnomeVersion` is the Gnome version to work with.
 
 ## Running the tests
 

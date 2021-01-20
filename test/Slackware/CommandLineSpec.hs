@@ -27,7 +27,7 @@ shouldParse (CompletionInvoked completion) expected
 spec :: Spec
 spec = do
     describe "opts" $ do
-        it "parses update-gnome with an optional version" $
-            let actual = ["update-gnome", "3.36.5"]
-                expected = UpgradeAll $ Just "3.36.5"
+        it "parses update-gnome command" $
+            let actual = ["update-gnome"]
+                expected = UpgradeAll
              in execOptsParserPure actual `shouldParse` expected

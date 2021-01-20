@@ -296,8 +296,8 @@ install = do
             flip runReaderT environment . doCompileOrder installPackage
      in traverse_ installPackage' $ repositories environment
 
-updateGnome :: Maybe String -> IO ()
-updateGnome _gnomeVersion = do
+updateGnome :: IO ()
+updateGnome = do
     environment <- collectRunInformation
 
     let upgradePackage' =
