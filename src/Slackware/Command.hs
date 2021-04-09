@@ -12,6 +12,7 @@ import Control.Monad (foldM, void)
 import Slackware.Arch
 import Slackware.CompileOrder
 import Slackware.Log
+import Slackware.Config (Config)
 import qualified Slackware.Config as Config
 import Slackware.Package
 import Control.Exception (IOException, throw, try)
@@ -224,7 +225,7 @@ doPackage command repo step = do
     exploded = explodePackageName step
     pkgName = snd exploded
 
-readConfiguration :: IO Config.Config
+readConfiguration :: IO Config
 readConfiguration = do
     configContent <- BSL.readFile Config.configPath
     config <- case Config.parseConfig Config.configPath configContent of
@@ -234,15 +235,42 @@ readConfiguration = do
     createDirectoryIfMissing True $ Text.unpack $ Config.loggingDirectory config
     return config
 
+collectStreams :: Config -> IO (Map Text FilePath)
+collectStreams config = do
+    currentDirectory <- getCurrentDirectory
+    _ <- setCurrentDirectory $ Text.unpack $ Config.temporaryDirectory config
+    let tarballURL = Text.concat
+            [ "https://download.gnome.org/teams/releng/gnome-"
+            , Config.gnomeVersion config
+            , ".tar.xz"
+            ]
+    streamURI <- mkURI tarballURL
+    _ <- liftIO $ fromJust $ download streamURI
+    _ <- setCurrentDirectory currentDirectory
+
+    let streamRoot = currentDirectory </> "etc/gnome"
+    collectStreams' streamRoot `catchIOError` const (pure mempty)
+  where
+    collectStreams' directory = do
+        rootDirectory <- listDirectory directory
+        foldM (forEachFile directory) mempty rootDirectory
+    forEachFile rootDirectory accumulator file = do
+        let filePath = rootDirectory </> file
+        isDirectory <- doesDirectoryExist filePath
+        case isDirectory of
+            True -> (accumulator <>) <$> collectStreams' filePath
+            False
+                | (basename, ".bst") <- splitExtension file ->
+                    pure $ Map.insert (Text.pack basename) filePath accumulator
+                | otherwise -> pure accumulator
+
 collectRunInformation :: IO Environment
 collectRunInformation = do
     config <- readConfiguration
     unameM' <- uname <$> readProcess "/usr/bin/uname" ["-m"] ""
     versions' <- collectVersions
-    currentDirectory <- getCurrentDirectory
-    let streamRoot = currentDirectory </> "etc/gnome"
-    streams' <- collectStreams streamRoot `catchIOError` const (pure mempty)
-    pure $ Environment unameM' config versions' streams'
+
+    Environment unameM' config versions' <$> collectStreams config
   where
     collectVersions = do
         let versionsFile = "etc/versions"
@@ -252,19 +280,6 @@ collectRunInformation = do
             . parse Version.versions versionsFile
             <$> Text.IO.readFile versionsFile
         else pure mempty
-    collectStreams :: FilePath -> IO (Map Text FilePath)
-    collectStreams directory = do
-        rootDirectory <- listDirectory directory
-        foldM (forEachFile directory) mempty rootDirectory
-    forEachFile rootDirectory accumulator file = do
-        let filePath = rootDirectory </> file
-        isDirectory <- doesDirectoryExist filePath
-        case isDirectory of
-            True -> (accumulator <>) <$> collectStreams filePath
-            False
-                | (basename, ".bst") <- splitExtension file ->
-                    pure $ Map.insert (Text.pack basename) filePath accumulator
-                | otherwise -> pure accumulator
 
 -- | Build all packages specified in the configuration.
 build :: IO ()
